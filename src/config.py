@@ -7,11 +7,12 @@ ROOT_DOMAIN = os.environ['ROOT_DOMAIN'] if os.environ.get(
 
 CONFIG_PATH = os.environ['CONFIG_PATH'] if os.environ.get('CONFIR_PATH') else "./configs"
 
-RABBITMQ_HOST = os.environ['RABBITMQ_HOST'] if os.environ.get('RABBIT_HOST') else "localhost"
+RABBITMQ_HOST = os.environ['RABBITMQ_HOST'] if os.environ.get(
+    'RABBITMQ_HOST') else "localhost"
 RABBITMQ_USER = os.environ['RABBITMQ_DEFAULT_USER'] if os.environ.get(
-    'RABBIT_USER') else "root"
+    'RABBITMQ_DEFAULT_USER') else "root"
 RABBITMQ_PASSWORD = os.environ['RABBITMQ_DEFAULT_PASS'] if os.environ.get(
-    'RABBIT_PASSWORD') else "jskdljflskdjflkjsqkjflkjqsldf564654"
+    'RABBITMQ_DEFAULT_PASS') else "jskdljflskdjflkjsqkjflkjqsldf564654"
 
 REDIS_HOST = os.environ['REDIS_HOST'] if os.environ.get('REDIS_HOST') else "localhost"
 
