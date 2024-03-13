@@ -70,7 +70,7 @@ ENV PATH="$VIRTUALENV/bin:$PATH"
 
 RUN pip3 --no-cache-dir install torch torchvision torchaudio -f https://download.pytorch.org/whl/cu111/torch_stable.html
 
-COPY --chown=spt pyproject.toml constraints.txt requirements.txt ./
+COPY --chown=spt pyproject.toml constraints.txt requirements.txt *.sh ./
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools && \
     python -m pip install --no-cache-dir -c constraints.txt ".[dev]"
 

@@ -8,7 +8,7 @@ import ssl
 import functools
 import asyncio
 import pika
-from config import RABBIT_HOST, RABBIT_PASSWORD, RABBIT_USER
+from config import RABBITMQ_HOST, RABBITMQ_PASSWORD, RABBITMQ_USER
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,9 +39,9 @@ class RabbitMQConfig(BaseModel):
 
 class QueueClient:
     def __init__(self):
-        self.username = RABBIT_USER
-        self.password = RABBIT_PASSWORD
-        self.host = RABBIT_HOST
+        self.username = RABBITMQ_USER
+        self.password = RABBITMQ_PASSWORD
+        self.host = RABBITMQ_HOST
         self.port = 5672
         self.protocol = ""
 

@@ -5,7 +5,7 @@ services:
     restart: always 
     image: spongetheory/spt-smi:latest
     ports:
-      - "8999:8999"
+      - "9999:9999"
     networks:
       - webfacing
       - dbs
@@ -15,9 +15,12 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+      - RABBITMQ_HOST=spt-smi_rabbitmq
+      - REDIS_HOST=spt-smi_redis=value
     volumes:
       - /data/smi/prod/data:/data
-    command: "uvicorn api:app --reload --app-dir ./src --port 8999"
+    command: "uvicorn api:app --reload --app-dir ./src --port 9999"
+
     #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1
@@ -37,9 +40,13 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+      - RABBITMQ_HOST=spt-smi_rabbitmq
+      - REDIS_HOST=spt-smi_redis
+      - IMAGEGENERATION_SERVICE_PORT = 55001
+      - IMAGEGENERATION_SERVICE_HOST = spt-smi_imageservice
     volumes:
       - /data/smi/prod/data:/data
-    command: "runjobs.sh"
+    command: "python -m spt.jobs"
     #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1
@@ -62,10 +69,12 @@ services:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - IMAGEGENERATION_SERVICE_PORT = 55001
-
+      - IMAGEGENERATION_SERVICE_HOST = spt-smi_imageservice
+      - RABBITMQ_HOST=spt-smi_rabbitmq
+      - REDIS_HOST=spt-smi_redis=value
     volumes:
       - /data/smi/prod/data:/data
-    command: "runimageservice.sh"
+    command: "python -m spt.services.image_generation.service"
     #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1
@@ -118,7 +127,6 @@ services:
 networks:
   servicesworkers:
     driver: overlay
-    external: true
   webfacing:
     driver: overlay
     external: true

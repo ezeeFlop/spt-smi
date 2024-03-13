@@ -2,7 +2,7 @@ from spt.jobs import Job
 from spt.services.image_generation.client import TextToImageClient
 from spt.models import JobsTypes, JobStatuses
 import logging
-from config import IMAGEGENERATION_SERVICE_PORT
+from config import IMAGEGENERATION_SERVICE_PORT, IMAGEGENERATION_SERVICE_HOST
 from spt.jobs import Jobs
 
 logging.basicConfig(level=logging.INFO)
@@ -12,7 +12,7 @@ class Dispatcher:
     def __init__(self) -> None:
         self.jobs = Jobs()
         self.textToImageClient = TextToImageClient(
-            "localhost", IMAGEGENERATION_SERVICE_PORT)
+            IMAGEGENERATION_SERVICE_HOST, IMAGEGENERATION_SERVICE_PORT)
     
     async def dispatch_job(self, job: Job):
         logger.info(f"Dispatching job {job.id} {job.type}")
