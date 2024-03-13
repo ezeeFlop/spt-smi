@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package proto.imagegeneration;
+
+// Définition d'un message pour une invite de texte spécifique
+message TextPrompt {
+  string text = 1;
+  float weight = 2;
+}
+
+// Définition du message de requête
+message ImageGenerationRequest {
+  int32 height = 1;
+  int32 width = 2;
+  repeated TextPrompt text_prompts = 3;
+  int32 steps = 4;
+  int32 samples = 5;
+  float cfg_scale = 6;
+  string clip_guidance_preset = 7;
+  string sampler = 8;
+  int32 seed = 9;
+  string style_preset = 10;
+  string model_id = 11;
+}
+
+// Définition du message de réponse pour une image générée
+message ImageGenerationResponse {
+  string base64 = 1;
+  string finishReason = 2;
+  int32 seed = 3;
+}
+
+// Service Status
+message StatusResponse {
+  string status = 1;
+  string message = 2;
+  string current_model_id = 3;
+}
+
+message EmptyRequest {}
+
+
+// Service definition
+service ImageGeneration {
+  rpc GenerateImage (ImageGenerationRequest) returns (ImageGenerationResponse);
+  rpc Status (EmptyRequest) returns (StatusResponse);
+}
+

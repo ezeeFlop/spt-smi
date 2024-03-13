@@ -1,0 +1,130 @@
+version: "3.7"
+
+services:
+  api:
+    restart: always 
+    image: spongetheory/spt-smi:latest
+    ports:
+      - "8999:8999"
+    networks:
+      - webfacing
+      - dbs
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=root
+      - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+    volumes:
+      - /data/smi/prod/data:/data
+    command: "uvicorn api:app --reload --app-dir ./src --port 8999"
+    #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.GPU == false
+
+  jobs:
+    restart: always 
+    image: spongetheory/spt-smi:latest
+    ports:
+      - "8999:8999"
+    networks:
+      - dbs
+      - servicesworkers
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=root
+      - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+    volumes:
+      - /data/smi/prod/data:/data
+    command: "runjobs.sh"
+    #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.GPU == false
+
+  imageservice:
+    restart: always 
+    image: spongetheory/spt-smi:latest
+    ports:
+      - "55001:5501"
+    networks:
+      - servicesworkers
+      - dbs
+    depends_on:
+      - redis
+      - rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=root
+      - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+      - IMAGEGENERATION_SERVICE_PORT = 55001
+
+    volumes:
+      - /data/smi/prod/data:/data
+    command: "runjobs.sh"
+    #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.GPU == true
+
+  redis:
+    image: redis:latest
+    #container_name: redis_server
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_REPLICATION_MODE=master
+      #- REDIS_PASSWORD=yourpassword # Définis le mot de passe de Redis (optionnel)
+    volumes:
+      - /data/smi/prod/redis:/data
+    networks:
+      - dbs
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.GPU == false
+    
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=root
+      - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+    ports:
+      - "5672:5672"  # Port par défaut pour RabbitMQ
+      - "15672:15672"  # Port pour la gestion via l'interface web
+    volumes:
+      - /data/smi/prod/rabbitmq/data:/var/lib/rabbitmq
+      - /data/smi/prod/rabbitmq/config:/etc/rabbitmq
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.labels.GPU == false
+    networks:
+      - dbs
+
+networks:
+  servicesworkers:
+    driver: overlay
+    external: true
+  webfacing:
+    driver: overlay
+    external: true
+  dbs:
+    driver: overlay
+    internal: true
+    attachable: true

@@ -1,0 +1,1 @@
+uvicorn api:app --reload --app-dir ./src --port 8999  
