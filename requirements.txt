@@ -34,3 +34,4 @@ msgpack
 grpcio 
 grpcio-tools
 pretty_errors
+fastapi

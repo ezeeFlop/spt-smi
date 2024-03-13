@@ -8,7 +8,7 @@ import ssl
 import functools
 import asyncio
 import pika
-from config import RABBIT_HOST, RABBIT_PASSWORD, RABBIT_USER, QUEUE_NAME
+from config import RABBIT_HOST, RABBIT_PASSWORD, RABBIT_USER
 import logging
 
 logger = logging.getLogger(__name__)

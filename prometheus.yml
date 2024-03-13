@@ -3,7 +3,7 @@ global:
   evaluation_interval: 30s # time between each evaluation of Prometheus' alerting rules
 
 scrape_configs:
-  - job_name: spt-content-generator   # your project name
+  - job_name: spt-smi   # your project name
     static_configs:
       - targets:
         - app:8999

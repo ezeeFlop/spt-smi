@@ -28,8 +28,6 @@ services:
   jobs:
     restart: always 
     image: spongetheory/spt-smi:latest
-    ports:
-      - "8999:8999"
     networks:
       - dbs
       - servicesworkers
@@ -53,7 +51,7 @@ services:
     restart: always 
     image: spongetheory/spt-smi:latest
     ports:
-      - "55001:5501"
+      - "55001:55001"
     networks:
       - servicesworkers
       - dbs
@@ -67,7 +65,7 @@ services:
 
     volumes:
       - /data/smi/prod/data:/data
-    command: "runjobs.sh"
+    command: "runimageservice.sh"
     #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1

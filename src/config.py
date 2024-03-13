@@ -13,8 +13,6 @@ RABBIT_USER = os.environ['RABBIT_USER'] if os.environ.get(
 RABBIT_PASSWORD = os.environ['RABBIT_PASSWORD'] if os.environ.get(
     'RABBIT_PASSWORD') else "jskdljflskdjflkjsqkjflkjqsldf564654"
 
-QUEUE_NAME = os.environ['QUEUE_NAME'] if os.environ.get('QUEUE_NAME') else "ia_jobs_queue"
-
 REDIS_HOST = os.environ['REDIS_HOST'] if os.environ.get('REDIS_HOST') else "localhost"
 
 # Services ports
