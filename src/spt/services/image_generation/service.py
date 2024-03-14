@@ -2,7 +2,7 @@ from concurrent import futures
 import grpc
 import imagegeneration_pb2
 import imagegeneration_pb2_grpc
-from config import IMAGEGENERATION_SERVICE_PORT
+from config import IMAGEGENERATION_SERVICE_PORT, IMAGEGENERATION_SERVICE_HOST
 
 from rich.logging import RichHandler
 from rich.console import Console
@@ -42,5 +42,6 @@ def serve(max_workers=10, host="localhost", port=50051):
 
 
 if __name__ == '__main__':
-    logger.info("Starting ImageGeneration service on port %s", IMAGEGENERATION_SERVICE_PORT)    
-    serve(max_workers=10, host='localhost', port=IMAGEGENERATION_SERVICE_PORT)
+    logger.info("Starting ImageGeneration service on host %s port %s", IMAGEGENERATION_SERVICE_HOST, IMAGEGENERATION_SERVICE_PORT)    
+    serve(max_workers=10, host=IMAGEGENERATION_SERVICE_HOST,
+          port=IMAGEGENERATION_SERVICE_PORT)
