@@ -16,10 +16,10 @@ services:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - RABBITMQ_HOST=spt-smi_rabbitmq
-      - REDIS_HOST=spt-smi_redis=value
+      - REDIS_HOST=spt-smi_redis
     volumes:
       - /data/smi/prod/data:/data
-    command: "uvicorn api:app --reload --app-dir ./src --port 9999"
+    command: "uvicorn api:app --reload --app-dir ./src --port 9999 --host 0.0.0.0"
 
     #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
@@ -71,7 +71,7 @@ services:
       - IMAGEGENERATION_SERVICE_PORT = 55001
       - IMAGEGENERATION_SERVICE_HOST = spt-smi_imageservice
       - RABBITMQ_HOST=spt-smi_rabbitmq
-      - REDIS_HOST=spt-smi_redis=value
+      - REDIS_HOST=spt-smi_redis
     volumes:
       - /data/smi/prod/data:/data
     command: "python -m spt.services.image_generation.service"

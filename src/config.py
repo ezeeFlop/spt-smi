@@ -3,7 +3,7 @@ import os
 
 
 ROOT_DOMAIN = os.environ['ROOT_DOMAIN'] if os.environ.get(
-    'ROOT_DOMAIN') else "http://localhost=8999"
+    'ROOT_DOMAIN') else "http://localhost=9999"
 
 CONFIG_PATH = os.environ['CONFIG_PATH'] if os.environ.get('CONFIR_PATH') else "./configs"
 

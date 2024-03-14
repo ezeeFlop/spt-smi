@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 class Dispatcher:
     def __init__(self) -> None:
         self.jobs = Jobs()
+        logger.info("Initializing dispatcher")
+
+        logger.info(f"Initializing text to image client with host {IMAGEGENERATION_SERVICE_HOST} and port {IMAGEGENERATION_SERVICE_PORT}")
         self.textToImageClient = TextToImageClient(
             IMAGEGENERATION_SERVICE_HOST, IMAGEGENERATION_SERVICE_PORT)
     
