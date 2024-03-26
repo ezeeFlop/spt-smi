@@ -8,7 +8,7 @@ csd = os.path.dirname(csf)
 ROOT_DOMAIN = os.environ['ROOT_DOMAIN'] if os.environ.get(
     'ROOT_DOMAIN') else "http://localhost=9999"
 
-CONFIG_PATH = os.environ['CONFIG_PATH'] if os.environ.get('CONFIR_PATH') else f"{csd}/../configs"
+CONFIG_PATH = os.environ['CONFIG_PATH'] if os.environ.get('CONFIG_PATH') else f"{csd}/../configs"
 
 RABBITMQ_HOST = os.environ['RABBITMQ_HOST'] if os.environ.get(
     'RABBITMQ_HOST') else "localhost"

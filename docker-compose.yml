@@ -19,7 +19,7 @@ services:
       - REDIS_HOST=spt-smi_redis
       - IMAGEGENERATION_SERVICE_PORT=55001
       - IMAGEGENERATION_SERVICE_HOST=spt-smi_imageservice
-      - CONFIG_PATH=/data/
+      - CONFIG_PATH=/data/configs
     volumes:
       - /data/smi/prod/data:/data
     command: "uvicorn api:app --reload --app-dir ./src --port 9999 --host 0.0.0.0"
@@ -45,7 +45,7 @@ services:
       - REDIS_HOST=spt-smi_redis
       - IMAGEGENERATION_SERVICE_PORT=55001
       - IMAGEGENERATION_SERVICE_HOST=spt-smi_imageservice
-      - CONFIG_PATH=/data/
+      - CONFIG_PATH=/data/configs
     volumes:
       - /data/smi/prod/data:/data
     command: "python -m spt.jobs"
@@ -73,7 +73,7 @@ services:
       - IMAGEGENERATION_SERVICE_HOST=0.0.0.0
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
-      - CONFIG_PATH=/data/
+      - CONFIG_PATH=/data/configs
     volumes:
       - /data/smi/prod/data:/data
     command: "python -m spt.services.image_generation.service"
