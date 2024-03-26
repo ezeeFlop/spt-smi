@@ -9,6 +9,11 @@ from spt.models import EnginesList, ModelType
 import base64
 import PIL
 import io
+import logging
+
+
+logger = logging.getLogger(__name__)
+
 
 def remap(model_engines):
     models = {}
@@ -59,7 +64,7 @@ class DiffusionModels:
             generator = None
 
             if torch.backends.mps.is_available():
-                print("MPS is available")
+                logger.info("MPS is available")
                 pipe = AutoPipelineForText2Image.from_pretrained(
                     model["model"],
                 )
@@ -68,10 +73,12 @@ class DiffusionModels:
                 generator = torch.Generator(device='mps')
 
             elif torch.cuda.is_available():
-                print("CUDA is available")
+                logger.info("CUDA is available")
 
                 pipe = AutoPipelineForText2Image.from_pretrained(
-                    model["model"], torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
+                    model["model"],
+
+                    #model["model"], torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
                 )
                 model['num_inference_steps'] = 30
                 torch.backends.cuda.matmul.allow_tf32 = True
@@ -80,7 +87,7 @@ class DiffusionModels:
                 generator = torch.Generator(device='cuda')
 
             else:
-                print("CUDA is not available")
+                logger.info("CUDA is **not** available")
                 pipe = AutoPipelineForText2Image.from_pretrained(
                     model["model"], torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
                 )

@@ -76,7 +76,6 @@ RUN python -m pip install --no-cache-dir --upgrade pip setuptools && \
 
 COPY --chown=spt src/ src/
 COPY --chown=spt models/ models/
-COPY --chown=spt config/ /data/configs
 
 RUN python -m pip install --no-cache-dir . -c constraints.txt && \
     python -m pip install --no-cache-dir -r requirements.txt
