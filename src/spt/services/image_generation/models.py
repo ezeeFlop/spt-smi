@@ -4,60 +4,40 @@ import torch
 import os
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
+import imagegeneration_pb2
+from spt.models import EnginesList, ModelType
+import base64
+import PIL
+import io
+
+def remap(model_engines):
+    models = {}
+    for engine in model_engines:
+        if engine["type"] == ModelType.picture.value:
+            models[engine["id"]] = {
+                "id": engine["id"],
+                "model": engine["name"],
+                "description": engine["description"],
+                "pipe": None,
+                "generator": None
+            }
+    return models
 
 class DiffusionModels:
-    models = {
-        "realisticVision": {
-            "model": "SG161222/Realistic_Vision_V3.0_VAE",
-            "pipe": None,
-            "generator": None,
-            "type": "diffusion",
-        },
-        "disneyPixar": {
-            "model": "stablediffusionapi/disney-pixar-cartoon",
-            "pipe": None,
-            "generator": None,
-            "type": "diffusion",
-        },
-        "stable-diffusion-xl": {
-            "model": "stabilityai/stable-diffusion-xl-base-1.0",
-            "pipe": None,
-            "generator": None,
-            "type": "diffusionXL",
-        },
-        "stable-diffusion-turbo": {
-            "pipe": None,
-            "generator": None,
-            "type": "diffusion",
-            "model": "stabilityai/sdxl-turbo"
-        }
-    }
+    models = remap(EnginesList.get_engines())
 
     def __init__(self, verbose=False) -> None:
         self.verbose = verbose
 
     @classmethod
-    def get_model(cls, model_name):
-        if DiffusionModels.models[model_name] is not None:
-            return DiffusionModels.models[model_name]
+    def get_model(cls, model_id):
+        if cls.models[model_id] is not None:
+            return cls.models[model_id]
         return None
 
     @classmethod
-    def list_models(cls):
-        return list(cls.models.keys())
-
-    @classmethod
-    def model_index(cls, model_name):
-        index = 0
-        for model in cls.models.keys():
-            if model == model_name:
-                return index
-            index += 1
-        return 0
-
-    @classmethod
-    def close_diffusion_pipe(cls, model_name):
-        model = DiffusionModels.get_model(model_name)
+    def close_diffusion_pipe(cls, model_id):
+        model = DiffusionModels.get_model(model_id=model_id)
         if model["pipe"] is not None:
             model["pipe"] = None
             model["generator"] = None
@@ -71,11 +51,8 @@ class DiffusionModels:
         return max_memory
 
     @classmethod
-    def get_diffusion_pipe(cls, prompt, model_name='diffusion'):
-        model = DiffusionModels.get_model(model_name)
-
-        if model == model_name:
-            return None
+    def get_diffusion_pipe(cls, model_id='diffusion'):
+        model = DiffusionModels.get_model(model_id)
 
         if model["pipe"] is None:
             pipe = None
@@ -123,8 +100,8 @@ class DiffusionModels:
         return model
 
     @classmethod
-    def generate_image(cls, prompt, seed=None, model_name="diffusion"):
-        model = DiffusionModels.get_diffusion_pipe(prompt, model_name)
+    def generate_images(cls, request: imagegeneration_pb2.ImageGenerationRequest):
+        model = DiffusionModels.get_diffusion_pipe(request.model_id)
 
         if model["pipe"] is None:
             return None
@@ -132,16 +109,28 @@ class DiffusionModels:
         pipe = model["pipe"]
         generator = model["generator"]
 
-        if seed is not None:
-            generator.manual_seed(seed)
+        if request.seed is not None:
+            generator.manual_seed(request.seed)
+        prompts = list(request.text_prompts)
+        images = []
+        for prompt in prompts:
+            image = pipe(
+                prompt=prompt.text,
+                generator=generator,
+                num_inference_steps=request.steps,
+            ).images[0]
+            tampon_bytes = io.BytesIO()
+            image.save(tampon_bytes, format='PNG')  # Tu peux changer 'PNG' en 'JPEG' selon le format souhaité
 
-        image = pipe(
-            prompt=prompt,
-            generator=generator,
-            num_inference_steps=model['num_inference_steps'],
-        ).images[0]
+            # Obtenir les bytes de l'image
+            bytes_image = tampon_bytes.getvalue()
 
-        return image
+            # Encoder les bytes en base64
+            image_base64 = base64.b64encode(bytes_image)
+
+            images.append({"base64": image_base64, "seed": 42})
+
+        return images
 
 
 def main():

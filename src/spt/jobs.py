@@ -5,14 +5,14 @@ import uuid
 import json 
 from spt.queue import QueueMessageSender, Headers, Priority, QueueMessageReceiver, sync
 from typing import List, Optional, Union
-from spt.models import JobStatuses, JobsTypes, TextToImageRequest, JobResponse, Artifact
+from spt.models import JobStatuses, JobsTypes, TextToImageRequest, JobResponse, Artifact, EngineResult
 from rich.logging import RichHandler
 from rich.console import Console
 import logging
 import concurrent.futures
 import asyncio
 import time
-
+import msgpack
 
 console = Console()
 
@@ -54,10 +54,17 @@ class Jobs:
             logger.error("Redis is not connected")
             self.redis = self._redis_connect()
     
+    async def delete_job(self, job: Job):
+        self.check_redis_connection()
+
+        self.redis.delete(f"{job.id}:status")
+        self.redis.delete(f"{job.id}:result")
+
     async def set_job_result(self, job: Job, result: Union[str, bytes]):
         self.check_redis_connection()
 
         toStore = json.dumps(result)
+        toStore = msgpack.packb(toStore)
         self.redis.set(f"{job.id}:result", toStore)
 
     async def get_job_result(self, job: Job) -> Artifact|JobResponse:
@@ -66,9 +73,18 @@ class Jobs:
         result = self.redis.get(f"{job.id}:result")
         if result is None:
             return JobResponse(id=job.id, status=JobStatuses.unknown, message="Job not found", type=JobsTypes.unknown)
-        result = json.loads(result.decode('utf-8'))
-        logger.info(f"Job {job.id} result: {result}")
-        return Artifact(base64=result['base64'], finishReason=result['finishReason'], seed=result['seed'])
+        result = msgpack.unpackb(result)
+        result = json.loads(result)
+        
+        await self.delete_job(job)
+
+        if job.type == JobsTypes.image_generation:
+            artifacts: List[Artifact] = []
+            for image in result['images']:
+                artifacts.append(Artifact(base64=image['base64'], seed=image["seed"], finishReason=result['finishReason']))
+            return artifacts
+
+        return {}
 
     async def set_job_status(self, job: Job, status: JobStatuses, message:str = ""):
         self.check_redis_connection()
@@ -76,7 +92,7 @@ class Jobs:
         nextStatus = json.dumps({"status": status.value, "message": message, "type": job.type.value})
         self.redis.set(f"{job.id}:status", nextStatus)
 
-    def get_job_status(self, job: Job) -> JobResponse:
+    async def get_job_status(self, job: Job) -> JobResponse:
         self.check_redis_connection()
 
         status = self.redis.get(f"{job.id}:status")

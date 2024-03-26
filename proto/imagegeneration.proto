@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/wrappers.proto";
 
 package proto.imagegeneration;
 
@@ -24,10 +25,15 @@ message ImageGenerationRequest {
 }
 
 // Définition du message de réponse pour une image générée
-message ImageGenerationResponse {
+
+message Image {
   string base64 = 1;
+  int32 seed = 2;
+}
+
+message ImageGenerationResponse {
+  repeated Image images = 1;
   string finishReason = 2;
-  int32 seed = 3;
 }
 
 // Service Status
@@ -35,6 +41,7 @@ message StatusResponse {
   string status = 1;
   string message = 2;
   string current_model_id = 3;
+  google.protobuf.FloatValue memory_usage = 4;
 }
 
 message EmptyRequest {}

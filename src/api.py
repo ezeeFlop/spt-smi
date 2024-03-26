@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Security, Request
+from fastapi import FastAPI, HTTPException, Depends, Security, Request, Response, Header
 from fastapi.security.api_key import APIKeyHeader
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
@@ -8,10 +8,13 @@ from spt.jobs import Job, Jobs
 import time
 import json
 from config import POLLING_TIMEOUT
-
+from typing import Union
+import asyncio
 from rich.logging import RichHandler
 from rich.console import Console
 import logging
+import base64
+
 
 console = Console()
 
@@ -90,9 +93,10 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-@app.post("/v1/generation/{engine_id}/text-to-image", response_model=JobResponse|ArtifactsList, status_code=201, tags=["Image Generation"])
-async def create_image(engine_id:str, request_data: TextToImageRequest, api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
+@app.post("/v1/generation/{engine_id}/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Image Generation"])
+async def create_image(engine_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
     logger.info(f"Text To Image with engine_id: {engine_id}")
+
     job = Job(payload=request_data.model_dump_json(), type=JobsTypes.image_generation, model_id=engine_id)
     await jobs.add_job(job)
     
@@ -100,24 +104,31 @@ async def create_image(engine_id:str, request_data: TextToImageRequest, api_key:
         return JobResponse(id=job.id, status=job.status, type=job.type, message=job.message)
     
     for _ in range(POLLING_TIMEOUT):
-        time.sleep(1)
-        status = jobs.get_job_status(job)
+        await asyncio.sleep(1)  # Utilise une pause asynchrone
+        status = await jobs.get_job_status(job)
         if status.status == JobStatuses.completed:
-            artifact = await jobs.get_job_result(job)
-            return ArtifactsList(id=job.id, status=status.status, message=status.message, type=status.type, artifacts=[artifact])
+            artifacts = await jobs.get_job_result(job)
+            logger.info(f"Job {job.id} completed with artifacts {artifacts}")
+
+            if accept == "image/png":
+                # Suppose que le premier artifact contient l'image que tu veux retourner
+                image_data = base64.b64decode(artifacts[0].base64)
+                return Response(content=image_data, media_type="image/png")
+
+            return ArtifactsList(id=job.id, status=status.status, message=status.message, type=status.type, artifacts=artifacts)
         if status.status == JobStatuses.failed:
             return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
     raise HTTPException(status_code=408, detail="Job timeout")
 
 
-@app.get("/v1/generation/text-to-image/{job_id}", response_model=ArtifactsList|JobResponse)
+@app.get("/v1/generation/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList])
 async def create_image(job_id: str, request_data: TextToImageRequest, api_key: str = Depends(get_api_key)):
     logger.info(f"Text To Image job retreival: {job_id}")
     job = Job(id=job_id)
-    status = jobs.get_job_status(job)
+    status = await jobs.get_job_status(job)
     if status.status == JobStatuses.completed:
-        artifact = await jobs.get_job_result(job)
-        return ArtifactsList(id=job.id, status=status.status, message=status.message, type=status.type, artifacts=[artifact])
+        artifacts = await jobs.get_job_result(job)
+        return ArtifactsList(id=job.id, status=status.status, message=status.message, type=status.type, artifacts=artifacts)
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
 
 @app.get("/v1/engines/list", response_model=EnginesList)

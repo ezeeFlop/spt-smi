@@ -17,11 +17,12 @@ services:
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
+      - IMAGEGENERATION_SERVICE_PORT=55001
+      - IMAGEGENERATION_SERVICE_HOST=spt-smi_imageservice
+      - CONFIG_PATH=/data/
     volumes:
       - /data/smi/prod/data:/data
     command: "uvicorn api:app --reload --app-dir ./src --port 9999 --host 0.0.0.0"
-
-    #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1
       placement:
@@ -42,12 +43,12 @@ services:
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
-      - IMAGEGENERATION_SERVICE_PORT = 55001
-      - IMAGEGENERATION_SERVICE_HOST = spt-smi_imageservice
+      - IMAGEGENERATION_SERVICE_PORT=55001
+      - IMAGEGENERATION_SERVICE_HOST=spt-smi_imageservice
+      - CONFIG_PATH=/data/
     volumes:
       - /data/smi/prod/data:/data
     command: "python -m spt.jobs"
-    #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1
       placement:
@@ -68,14 +69,14 @@ services:
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
-      - IMAGEGENERATION_SERVICE_PORT = 55001
-      - IMAGEGENERATION_SERVICE_HOST = spt-smi_imageservice
+      - IMAGEGENERATION_SERVICE_PORT=55001
+      - IMAGEGENERATION_SERVICE_HOST=0.0.0.0
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
+      - CONFIG_PATH=/data/
     volumes:
       - /data/smi/prod/data:/data
     command: "python -m spt.services.image_generation.service"
-    #command: "gunicorn api:app --timeout 600 --log-level=debug --bind 0.0.0.0:8999" 
     deploy:
       replicas: 1
       placement:
@@ -84,7 +85,6 @@ services:
 
   redis:
     image: redis:latest
-    #container_name: redis_server
     ports:
       - "6379:6379"
     environment:

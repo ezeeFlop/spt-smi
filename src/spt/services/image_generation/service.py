@@ -1,11 +1,16 @@
 from concurrent import futures
 import grpc
+from google.protobuf.wrappers_pb2 import FloatValue
 import imagegeneration_pb2
 import imagegeneration_pb2_grpc
 from config import IMAGEGENERATION_SERVICE_PORT, IMAGEGENERATION_SERVICE_HOST
 
 from rich.logging import RichHandler
 from rich.console import Console
+from spt.models import ServiceStatus
+
+from spt.services.image_generation.models import DiffusionModels
+from spt.models import EngineResult
 import logging
 
 console = Console()
@@ -20,17 +25,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-class TextToImageServicer(imagegeneration_pb2_grpc.ImageGenerationServicer):
-    def GenerateImage(self, request, context):
+class TextToImageServicer(imagegeneration_pb2_grpc.ImageGenerationServicer) :
+    def GenerateImage(self, request: imagegeneration_pb2.ImageGenerationRequest, context) -> imagegeneration_pb2.ImageGenerationResponse:
         logger.info(f"Received request {request}")
 
+        images = DiffusionModels.generate_images(request)
 
-        # Ici, tu implémenteras la logique pour générer l'image basée sur la requête
-        return imagegeneration_pb2.ImageGenerationResponse(base64="iVBORw0KGgoAAAANSUh...", finishReason="SUCCESS", seed=1050625087)
+        return imagegeneration_pb2.ImageGenerationResponse(images=images, finishReason=EngineResult.success)
 
-    def Status(self, request, context):
+    def Status(self, request, context) -> imagegeneration_pb2.StatusResponse:
         logger.info(f"Received status request {request}")
-        return imagegeneration_pb2.StatusResponse(status="SERVING")
+        logger.info(f"Memory usage: {DiffusionModels.memory_usage()}")
+        memory_usage = FloatValue(value=DiffusionModels.memory_usage())
+        return imagegeneration_pb2.StatusResponse(status=ServiceStatus.idle, memory_usage=memory_usage, message="...")
+
+        #return imagegeneration_pb2.StatusResponse(status=ServiceStatus.idle, memory_usage=DiffusionModels.memory_usage(), message="...")
 
 def serve(max_workers=10, host="localhost", port=50051):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))

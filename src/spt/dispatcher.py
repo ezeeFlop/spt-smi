@@ -4,7 +4,9 @@ from spt.models import JobsTypes, JobStatuses
 import logging
 from config import IMAGEGENERATION_SERVICE_PORT, IMAGEGENERATION_SERVICE_HOST
 from spt.jobs import Jobs
-
+from google.protobuf.json_format import MessageToJson
+import traceback
+import json
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -25,17 +27,20 @@ class Dispatcher:
                 status = self.textToImageClient.status()
                 logger.info(f"Job {job.id} in progress {status}")
                 response = self.textToImageClient.generate_image(job)
-                logger.info(f"Job {job.id} in progress {response}")
+                #logger.info(f"Job {job.id} in progress {response}")
+                
+                message = MessageToJson(response)
+                #logger.info(f"Job {job.id} done : {message}")
+                message = json.loads(message)
                 await self.jobs.set_job_result(job, {
-                    "base64": response.base64,
-                    "finishReason": response.finishReason,
-                    "seed": response.seed
+                    "images": message["images"],
+                    "finishReason": message["finishReason"],
                 })
                 await self.jobs.set_job_status(job, JobStatuses.completed)
-                logger.info(f"Job {job.id} completed {response}")
+                #logger.info(f"Job {job.id} completed {response}")
             else:
                 logger.error(f"Unknown job type {job.type}")
         except Exception as e:
-            logger.error(f"Failed to dispatch job {job.id}: {e}")
+            logger.error(f"Failed to dispatch job {job.id}: {e} stack trace: {traceback.format_exc()}")
             await self.jobs.set_job_status(job, JobStatuses.failed, message=str(e))
   

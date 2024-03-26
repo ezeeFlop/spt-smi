@@ -22,12 +22,13 @@ class TextToImageClient:
 
         return self.stub.GenerateImage(imagegeneration_pb2.ImageGenerationRequest(
             text_prompts=job.payload["text_prompts"], 
-            height=512, 
-            width=512, 
-            steps=1, 
-            samples=1, 
-            cfg_scale=7, 
-            clip_guidance_preset="NONE", 
-            sampler="DDIM", 
-            seed=0, 
-            style_preset="photographic"))
+            height=job.payload["height"], 
+            width=job.payload["width"], 
+            steps=job.payload["steps"], 
+            samples=job.payload["samples"], 
+            cfg_scale=job.payload["cfg_scale"], 
+            clip_guidance_preset=job.payload["clip_guidance_preset"], 
+            sampler=job.payload["sampler"], 
+            seed=job.payload["seed"], 
+            style_preset=job.payload["style_preset"],
+            model_id = job.model_id))

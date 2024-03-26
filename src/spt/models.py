@@ -162,6 +162,10 @@ class ServiceResponseStatus(str, Enum):
     error = "ERROR",
     content_filtered = "CONTENT_FILTERED"
 
+class ServiceStatus(str, Enum):
+    idle = "IDLE",
+    working = "WORKING",
+
 class JobResponse(BaseModel):
     id: str = Field(..., example="b7b7c5a5-98b0-4a07-af27-93bfcfa38246", description="Unique identifier for the job")
     type: JobsTypes = Field(..., example="image_generation", description="Type of job")
