@@ -74,7 +74,7 @@ def serve(max_workers=10, host="localhost", port=50052):
         GenericServiceServicer(), server)
     server.add_insecure_port(f"{host}:{port}")
     server.start()
-    logger.info("Chat service started. Listening on port %d", port)
+    logger.info("Service started. Listening on port %d", port)
     server.wait_for_termination()
 
 
