@@ -34,3 +34,4 @@ pretty_errors
 fastapi
 datamodel-code-generator
 ollama-python
+rich
