@@ -20,7 +20,7 @@ class Dispatcher:
             IMAGEGENERATION_SERVICE_HOST, IMAGEGENERATION_SERVICE_PORT)
         
         logger.info(
-            f"Initializing text to image client with host {IMAGEGENERATION_SERVICE_HOST} and port {IMAGEGENERATION_SERVICE_PORT}")
+            f"Initializing llm client with host {LLM_SERVICE_HOST} and port {LLM_SERVICE_PORT}")
         self.llmClient = GenericClient(
             LLM_SERVICE_HOST, LLM_SERVICE_PORT)
 

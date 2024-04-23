@@ -161,6 +161,7 @@ services:
       placement:
         constraints:
           - node.labels.GPU == false
+    command: ["bash", "-c", "chmod 400 /var/lib/rabbitmq/.erlang.cookie; rabbitmq-server"]
     networks:
       - dbs
 
