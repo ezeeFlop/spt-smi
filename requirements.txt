@@ -1,6 +1,5 @@
 langchain
 scikit-image
-streamlit
 diffusers[torch]
 torch
 transformers
@@ -16,8 +15,6 @@ google-api-python-client
 tiktoken
 watchdog
 openai
-mistralai
-langchain_mistralai
 altair==4.0
 Flask
 gunicorn
@@ -35,3 +32,5 @@ grpcio
 grpcio-tools
 pretty_errors
 fastapi
+datamodel-code-generator
+ollama-python

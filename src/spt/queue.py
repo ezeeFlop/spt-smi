@@ -29,6 +29,10 @@ class Headers(BaseModel):
     job_id: str
     job_type: str
     job_model_id: str
+    job_remote_class: str
+    job_remote_method: str
+    job_request_model_class: str
+    job_response_model_class: str
 
 class RabbitMQConfig(BaseModel):
     host: str

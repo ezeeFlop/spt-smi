@@ -25,6 +25,17 @@ IMAGEGENERATION_SERVICE_PORT = os.environ['IMAGEGENERATION_SERVICE_PORT'] if os.
     'IMAGEGENERATION_SERVICE_PORT') else 55001
 IMAGEGENERATION_SERVICE_HOST = os.environ['IMAGEGENERATION_SERVICE_HOST'] if os.environ.get(
     'IMAGEGENERATION_SERVICE_HOST') else "localhost"
+LLM_SERVICE_PORT = os.environ['LLM_SERVICE_PORT'] if os.environ.get(
+    'LLM_SERVICE_PORT') else 55002
+LLM_SERVICE_HOST = os.environ['LLM_SERVICE_HOST'] if os.environ.get(
+    'LLM_SERVICE_HOST') else "localhost"
+
+
+
+OLLAMA_HOST = os.environ['OLLAMA_HOST'] if os.environ.get(
+    'OLLAMA_HOST') else "localhost"
+OLLAMA_PORT = os.environ['OLLAMA_PORT'] if os.environ.get(
+    'OLLAMA_PORT') else 11434
 
 
 POLLING_TIMEOUT = 500

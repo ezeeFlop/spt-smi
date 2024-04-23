@@ -1,2 +1,2 @@
 #!/bin/bash
-(cd ./src && python -m spt.services.image_generation.service)
+(cd ./src && python -m spt.services.generic.service --host localhost --port 55001)

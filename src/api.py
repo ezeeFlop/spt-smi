@@ -1,20 +1,28 @@
 from fastapi import FastAPI, HTTPException, Depends, Security, Request, Response, Header
 from fastapi.security.api_key import APIKeyHeader
+from fastapi.responses import StreamingResponse
+
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from keys import API_KEY
-from spt.models import TextToImageRequest, EnginesList, ArtifactsList, JobResponse, JobsTypes, JobStatuses
+from spt.models.jobs import JobsTypes, JobStatuses, JobResponse
+from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
+from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
+from spt.models.remotecalls import class_to_string, string_to_class
 from spt.jobs import Job, Jobs
 import time
 import json
-from config import POLLING_TIMEOUT
+from config import POLLING_TIMEOUT, OLLAMA_HOST, OLLAMA_PORT
 from typing import Union
 import asyncio
 from rich.logging import RichHandler
 from rich.console import Console
 import logging
 import base64
-
+import httpx
+from httpx import AsyncClient, Timeout
+from pydantic import BaseModel
+from typing import Type, Any
 
 console = Console()
 
@@ -34,10 +42,14 @@ jobs = None
 async def lifespan(app: FastAPI):
     global jobs
     if jobs is None:
-        jobs = Jobs(JobsTypes.image_generation)
+        jobs_types = [JobsTypes.image_generation, JobsTypes.llm_generation,
+                    JobsTypes.audio_generation, JobsTypes.video_generation]
+        jobs = {job_type: Jobs(job_type) for job_type in jobs_types}
+# jobs = Jobs(JobsTypes.image_generation)
     yield
     # Clean up the ML models and release the resources
-    jobs.stop()
+    for job in jobs:
+        job.stop()
 
 app = FastAPI(
     lifespan=lifespan,
@@ -96,39 +108,33 @@ async def log_requests(request: Request, call_next):
 @app.post("/v1/generation/{engine_id}/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Image Generation"])
 async def create_image(engine_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
     logger.info(f"Text To Image with engine_id: {engine_id}")
+    request_data.model = engine_id
+    job = await add_job(request_data.model_dump_json(), JobsTypes.image_generation, engine_id, "generate_images", "spt.services.image_generation.service.DiffusionModels", TextToImageRequest, ArtifactsList)
+    result = await get_job_result(job, async_key)
 
-    job = Job(payload=request_data.model_dump_json(), type=JobsTypes.image_generation, model_id=engine_id)
-    await jobs.add_job(job)
-    
     if async_key:
-        return JobResponse(id=job.id, status=job.status, type=job.type, message=job.message)
+        return result
     
-    for _ in range(POLLING_TIMEOUT):
-        await asyncio.sleep(1)  # Utilise une pause asynchrone
-        status = await jobs.get_job_status(job)
-        if status.status == JobStatuses.completed:
-            artifacts = await jobs.get_job_result(job)
-            logger.info(f"Job {job.id} completed with artifacts {artifacts}")
-
-            if accept == "image/png":
-                # Suppose que le premier artifact contient l'image que tu veux retourner
-                image_data = base64.b64decode(artifacts[0].base64)
-                return Response(content=image_data, media_type="image/png")
-
-            return ArtifactsList(id=job.id, status=status.status, message=status.message, type=status.type, artifacts=artifacts)
-        if status.status == JobStatuses.failed:
-            return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
-    raise HTTPException(status_code=408, detail="Job timeout")
-
+    if accept == "image/png":
+        # Suppose que le premier artifact contient l'image que tu veux retourner
+        image_data = base64.b64decode(result.artifacts[0].base64)
+        return Response(content=image_data, media_type="image/png")
+    
+    return result
 
 @app.get("/v1/generation/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList])
-async def create_image(job_id: str, request_data: TextToImageRequest, api_key: str = Depends(get_api_key)):
+async def create_image(job_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key)):
     logger.info(f"Text To Image job retreival: {job_id}")
-    job = Job(id=job_id)
-    status = await jobs.get_job_status(job)
+    job = Job(id=job_id, type=JobsTypes.image_generation, response_model_class=class_to_string(ArtifactsList))
+    status = await jobs[JobsTypes.image_generation].get_job_status(job)
+
     if status.status == JobStatuses.completed:
-        artifacts = await jobs.get_job_result(job)
-        return ArtifactsList(id=job.id, status=status.status, message=status.message, type=status.type, artifacts=artifacts)
+        result = await jobs[JobsTypes.image_generation].get_job_result(job)
+        if accept == "image/png":
+            # Suppose que le premier artifact contient l'image que tu veux retourner
+            image_data = base64.b64decode(result.artifacts[0].base64)
+            return Response(content=image_data, media_type="image/png")
+        return result
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
 
 @app.get("/v1/engines/list", response_model=EnginesList)
@@ -138,3 +144,63 @@ async def list_engines(api_key: str = Depends(get_api_key)):
     engines = EnginesList.get_engines()
 
     return EnginesList(engines=engines)
+
+# New endpoints calling the OLLAMA API
+
+timeout = Timeout(10.0, connect=60.0, read=60.0)
+
+@app.post("/v1/generate/completion", response_model=GenerateResponse, tags=["Text Generation"])
+async def generate_completion(request_data: GenerateRequest, api_key: str = Depends(get_api_key)):
+    url = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/generate"
+    pass
+
+@app.post("/v1/generate/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])
+async def generate_chat(request_data: ChatRequest, api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
+    job = await add_job(request_data.model_dump_json(), JobsTypes.llm_generation, request_data.model, "generate_chat", "spt.services.llm_generation.service.LLMModels", ChatRequest, ChatResponse)
+    return await get_job_result(job, async_key)
+
+
+@app.get("/v1/generate/chat/{job_id}", response_model=Union[JobResponse, ChatResponse])
+async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends(get_api_key)):
+    logger.info(f"LLM Chat generation job retreival: {job_id}")
+    job = Job(id=job_id, type=JobsTypes.llm_generation,
+              response_model_class=class_to_string(ChatResponse))
+    status = await jobs[JobsTypes.llm_generation].get_job_status(job)
+
+    if status.status == JobStatuses.completed:
+        result = await jobs[JobsTypes.llm_generation].get_job_result(job)
+        return result
+    return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
+
+
+@app.post("/v1/generate/embeddings", response_model=EmbeddingsResponse, tags=["Embeddings Generation"])
+async def generate_embeddings(request_data: EmbeddingsRequest, api_key: str = Depends(get_api_key)):
+    pass
+
+async def add_job(payload: str, type: JobsTypes, model_id: str, remote_method: str, remote_class: str, request_model_class: Type[BaseModel], response_model_class: Type[BaseModel]) -> Job:
+   job = Job(payload=payload,
+             type=type, 
+             model_id=model_id, 
+             remote_method=remote_method, 
+             remote_class=remote_class, 
+             request_model_class=class_to_string(request_model_class), 
+             response_model_class=class_to_string(response_model_class))
+   await jobs[type].add_job(job)
+   return job
+
+async def get_job_result(job: Job, async_key: str) -> Type[BaseModel] | JobResponse:
+    if async_key:
+        logger.info(f"Waiting for async job {job.id} {job.status} {job.type} {job.message} to complete")
+        return JobResponse(id=job.id, status=job.status, type=job.type, message=job.message)
+
+    for _ in range(POLLING_TIMEOUT):
+        await asyncio.sleep(1)  # Utilise une pause asynchrone
+        status = await jobs[JobsTypes.llm_generation].get_job_status(job)
+        if status.status == JobStatuses.completed:
+            result = await jobs[JobsTypes.llm_generation].get_job_result(job)
+            logger.info(
+                f"Job {job.id} completed with result: {result}")
+            return result
+        if status.status == JobStatuses.failed:
+            return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
+    raise HTTPException(status_code=408, detail="Job timeout")

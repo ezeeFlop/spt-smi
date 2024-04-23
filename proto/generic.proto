@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package generic;
+
+// Service de communication générique utilisant JSON comme payload
+service GenericService {
+    rpc ProcessData (GenericRequest) returns (GenericResponse);
+}
+
+// Définition de la requête générique avec payload JSON
+message GenericRequest {
+    bytes json_payload = 1; // Le payload JSON est envoyé en tant que bytes
+    string remote_class = 2;
+    string remote_method = 3;
+    string response_model_class = 4;
+    string request_model_class = 5;
+}
+
+// Définition de la réponse générique avec payload JSON
+message GenericResponse {
+    bytes json_payload = 1; // Le payload JSON est reçu en tant que bytes
+}
