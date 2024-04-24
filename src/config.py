@@ -21,19 +21,21 @@ REDIS_HOST = os.environ['REDIS_HOST'] if os.environ.get('REDIS_HOST') else "loca
 
 # Services ports
 
-IMAGEGENERATION_SERVICE_PORT = os.environ['IMAGEGENERATION_SERVICE_PORT'] if os.environ.get(
-    'IMAGEGENERATION_SERVICE_PORT') else 55001
-IMAGEGENERATION_SERVICE_HOST = os.environ['IMAGEGENERATION_SERVICE_HOST'] if os.environ.get(
-    'IMAGEGENERATION_SERVICE_HOST') else "localhost"
-LLM_SERVICE_PORT = os.environ['LLM_SERVICE_PORT'] if os.environ.get(
-    'LLM_SERVICE_PORT') else 55002
-LLM_SERVICE_HOST = os.environ['LLM_SERVICE_HOST'] if os.environ.get(
-    'LLM_SERVICE_HOST') else "localhost"
+IMAGE_GENERATION = os.environ['IMAGE_GENERATION'] if os.environ.get(
+    'IMAGE_GENERATION') else "localhost:55001"
+LLM_GENERATION = os.environ['LLM_GENERATION'] if os.environ.get(
+    'LLM_GENERATION') else "localhost:55002"
+AUDIO_GENERATION = os.environ['AUDIO_GENERATION'] if os.environ.get(
+    'AUDIO_GENERATION') else "localhost:55003"
+IMAGE_PROCESSING = os.environ['IMAGE_PROCESSING'] if os.environ.get(
+    'IMAGE_PROCESSING') else "localhost:55004"
+VIDEO_GENERATION = os.environ['VIDEO_GENERATION'] if os.environ.get(
+    'VIDEO_GENERATION') else "localhost:55005"
 
 # OLLAMA Url
 
 OLLAMA_URL = os.environ['OLLAMA_URL'] if os.environ.get(
     'OLLAMA_URL') else "http://localhost:11434"
 
-
+# Pooling delay in seconds for sync API requests
 POLLING_TIMEOUT = 500

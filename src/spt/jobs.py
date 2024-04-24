@@ -30,6 +30,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+dispatcher = None
 
 class Job:
     def __init__(self, payload: Optional[str] = None, 
@@ -58,6 +59,7 @@ class Jobs:
         self.consumer = None
         self.routing_key = f"{type.value}"
         self.thread = None
+        self.dispatcher = None
 
     def _redis_connect(self):
         return redis.Redis(
@@ -151,6 +153,8 @@ class Jobs:
 
     @sync
     async def receive_job(self, channel, method, properties, body):
+        global dispatcher
+
         body = self.consumer.decode_message(body=body)
         
         logger.info(f"---> Receive Job {channel}, {method} {properties} Body received {body}")
@@ -167,9 +171,11 @@ class Jobs:
         
         await self.set_job_status(job, JobStatuses.in_progress)
         
-        from spt.dispatcher import Dispatcher
+        if dispatcher is None:
+            from spt.dispatcher import Dispatcher
+            dispatcher = Dispatcher()
 
-        await Dispatcher().dispatch_job(job)
+        await dispatcher.dispatch_job(job)
 
 
     def start_jobs_receiver_thread(self):

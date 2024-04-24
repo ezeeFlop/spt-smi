@@ -70,12 +70,12 @@ class ChatResponse(BaseModel):
     created_at: str
     message: ChatMessage
     done: bool
-    total_duration: Optional[int]
-    load_duration: Optional[int]
-    prompt_eval_count: Optional[int]
-    prompt_eval_duration: Optional[int]
-    eval_count: Optional[int]
-    eval_duration: Optional[int]
+    total_duration: Optional[int] = 0
+    load_duration: Optional[int] = 0
+    prompt_eval_count: Optional[int] = 0
+    prompt_eval_duration: Optional[int] = 0
+    eval_count: Optional[int] = 0
+    eval_duration: Optional[int] = 0
 
 # Modèles pour l'endpoint Generate Embeddings
 
@@ -83,7 +83,7 @@ class ChatResponse(BaseModel):
 class EmbeddingsRequest(BaseModel):
     model: str
     prompt: str
-    options: Optional[Dict[str, str]] = None
+    options: Optional[Options] = None
     keep_alive: Optional[str] = None
 
 

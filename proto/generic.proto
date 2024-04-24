@@ -14,6 +14,8 @@ message GenericRequest {
     string remote_method = 3;
     string response_model_class = 4;
     string request_model_class = 5;
+    string remote_function = 6;
+    string remote_module = 7;
 }
 
 // Définition de la réponse générique avec payload JSON

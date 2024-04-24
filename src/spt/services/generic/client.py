@@ -9,31 +9,29 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class GenericClient:
-    def __init__(self, host, port) -> None:
-        """
-        Initialise le client gRPC.
-        :param host: L'hôte du serveur gRPC.
-        :param port: Le port du serveur gRPC.
-        """
-        # Créer un canal gRPC en utilisant l'hôte et le port fournis.
-        self.channel = grpc.insecure_channel(f'{host}:{port}')
-        # Créer un stub (proxy) pour communiquer avec le serveur gRPC.
+    def __init__(self, host) -> None:
+
+        self.channel = grpc.insecure_channel(f'{host}')
         self.stub = generic_pb2_grpc.GenericServiceStub(self.channel)
 
-    def process_data(self, job: Job) -> generic_pb2.GenericResponse:
-        """
-        Envoie des données JSON au service gRPC et reçoit une réponse.
-        :param json_payload: Le payload JSON sérialisé en bytes.
-        :return: Une réponse du serveur gRPC contenant un payload JSON.
-        """
-
-        string_payload = json.dumps(job.payload)
-        # Encodage du payload JSON en bytes
-        json_payload = string_payload.encode('utf-8')
-        # Log l'action d'envoi de la demande de traitement.
+    def call_remote_function(self, remote_module: str, remote_function: str, payload: dict, response_model_class:str)-> generic_pb2.GenericResponse:
         logger.info(
-            f"Envoi d'une demande de traitement avec payload: {json_payload}")
-        # Créer une requête gRPC avec le payload JSON et envoyer la requête.
+            f"Execute remote function {remote_function} with payload: {payload}")
+        request = generic_pb2.GenericRequest(
+            json_payload=json.dumps(payload).encode('utf-8'), 
+            remote_function=remote_function,
+            remote_module = remote_module,
+            response_model_class=response_model_class
+        )
+        response = self.stub.ProcessData(request)
+        logger.info(f"Response with payload: {response.json_payload}")
+        return json.loads(response.json_payload)
+
+    def process_data(self, job: Job) -> generic_pb2.GenericResponse:
+        string_payload = json.dumps(job.payload)
+        json_payload = string_payload.encode('utf-8')
+        logger.info(
+            f"Execute service request with payload: {json_payload}")
         request = generic_pb2.GenericRequest(
             json_payload=json_payload, 
             remote_class=job.remote_class, 
@@ -42,6 +40,5 @@ class GenericClient:
             response_model_class=job.response_model_class)
         
         response = self.stub.ProcessData(request)
-        # Log la réception de la réponse.
-        logger.info(f"Réponse reçue avec payload: {response.json_payload}")
+        logger.info(f"Service response with payload: {response.json_payload}")
         return response

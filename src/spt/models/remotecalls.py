@@ -1,14 +1,16 @@
 import json
 from pydantic import BaseModel, ValidationError, validator
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, Optional, List
 import importlib
 from spt.models.jobs import JobStatuses
 
 class MethodCallRequest(BaseModel):
-    remote_class: str
-    remote_method: str
-    request_model_class: str
-    response_model_class: str
+    remote_class: Optional[str] = None
+    remote_method: Optional[str] = None
+    request_model_class: Optional[str] = None
+    response_model_class: Optional[str] = None
+    remote_function: Optional[str] = None
+    remote_module: Optional[str] = None
     payload: Dict[str, Any]
 
     @validator('remote_class')
@@ -42,3 +44,24 @@ def string_to_class(class_path: str) -> Type[BaseModel]:
 def class_to_string(model_class: Type[BaseModel]) -> str:
     class_path = f"{model_class.__module__}.{model_class.__qualname__}"
     return class_path
+
+
+def string_to_module(module_path: str):
+    module = importlib.import_module(module_path)
+    return module
+
+
+# remote function call models response
+
+class GPUInfo(BaseModel):
+    name: str
+    memory_total_gb: float
+    memory_used_gb: float
+    memory_free_gb: float
+    utilization_gpu_percent: int
+    utilization_memory_percent: int
+
+
+class GPUsInfo(BaseModel):
+    gpus: List[GPUInfo]
+    error: Optional[str] = None

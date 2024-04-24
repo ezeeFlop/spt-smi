@@ -8,7 +8,7 @@ from keys import API_KEY
 from spt.models.jobs import JobsTypes, JobStatuses, JobResponse
 from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
 from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
-from spt.models.remotecalls import class_to_string, string_to_class
+from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo
 from spt.jobs import Job, Jobs
 import time
 from config import POLLING_TIMEOUT
@@ -34,15 +34,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 jobs = None
+dispatcher = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global jobs
+    global dispatcher
     if jobs is None:
         jobs_types = [JobsTypes.image_generation, JobsTypes.llm_generation,
                     JobsTypes.audio_generation, JobsTypes.video_generation]
         jobs = {job_type: Jobs(job_type) for job_type in jobs_types}
-# jobs = Jobs(JobsTypes.image_generation)
+    if dispatcher is None:
+        from spt.dispatcher import Dispatcher
+        dispatcher = Dispatcher()
     yield
     # Clean up the ML models and release the resources
     for job in jobs:
@@ -112,7 +116,7 @@ async def create_image(engine_id: str, request_data: TextToImageRequest, accept=
     if async_key:
         return result
     
-    if accept == "image/png":
+    if accept == "image/png" and isinstance(result, ArtifactsList):
         # Suppose que le premier artifact contient l'image que tu veux retourner
         image_data = base64.b64decode(result.artifacts[0].base64)
         return Response(content=image_data, media_type="image/png")
@@ -137,16 +141,16 @@ async def create_image(job_id: str, request_data: TextToImageRequest, accept=Hea
 @app.get("/v1/engines/list", response_model=EnginesList)
 async def list_engines(api_key: str = Depends(get_api_key)):
     logger.info(f"List engines")
-
     engines = EnginesList.get_engines()
-
     return EnginesList(engines=engines)
 
-# New endpoints calling the OLLAMA API
 
-@app.post("/v1/generate/completion", response_model=GenerateResponse, tags=["Text Generation"])
-async def generate_completion(request_data: GenerateRequest, api_key: str = Depends(get_api_key)):
-    pass
+@app.get("/v1/gpu/info", response_model=GPUsInfo)
+async def gpu_infos(api_key: str = Depends(get_api_key)):
+    logger.info(f"Get GPUs Infos")
+    return await dispatcher.call_remote_function(JobsTypes.llm_generation, "spt.services.gpu","gpu_infos", {}, GPUsInfo)
+
+# New endpoints calling the OLLAMA API
 
 @app.post("/v1/generate/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])
 async def generate_chat(request_data: ChatRequest, api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
@@ -167,9 +171,10 @@ async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
 
 
-@app.post("/v1/generate/embeddings", response_model=EmbeddingsResponse, tags=["Embeddings Generation"])
-async def generate_embeddings(request_data: EmbeddingsRequest, api_key: str = Depends(get_api_key)):
-    pass
+@app.post("/v1/generate/embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Embeddings Generation"])
+async def generate_embeddings(request_data: EmbeddingsRequest, api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
+    job = await add_job(request_data.model_dump_json(), JobsTypes.llm_generation, request_data.model, "generate_embeddings", "spt.services.llm_generation.service.LLMModels", EmbeddingsRequest, EmbeddingsResponse)
+    return await get_job_result(job, async_key)
 
 async def add_job(payload: str, type: JobsTypes, model_id: str, remote_method: str, remote_class: str, request_model_class: Type[BaseModel], response_model_class: Type[BaseModel]) -> Job:
    job = Job(payload=payload,
