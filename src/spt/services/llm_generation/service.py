@@ -12,6 +12,7 @@ class LLMModels(Service):
 
     def __init__(self, servicer: GenericServiceServicer = None) -> None:
         super().__init__(servicer=servicer)
+        logger.info(f"Connecting to {OLLAMA_URL}")
         self.client = Client(host=OLLAMA_URL, timeout=500)
 
     def generate_chat(self, request: ChatRequest):
