@@ -11,11 +11,10 @@ import json
 from typing import Type, Any
 import argparse
 import traceback
-from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvmlDeviceGetName, nvmlDeviceGetMemoryInfo, nvmlDeviceGetUtilizationRates, NVMLError
+from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvmlDeviceGetName, nvmlDeviceGetMemoryInfo, nvmlDeviceGetUtilizationRates, NVMLError, nvmlShutdown
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('grpc-server')
-
 
 class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
     def ProcessData(self, request, context):
@@ -47,34 +46,15 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
         return generic_pb2.GenericResponse(json_payload=response)
 
     def execute_method(self, request:MethodCallRequest) -> Type[BaseModel]:
-        #try:
-            # Importation dynamique des classes
-            #module = importlib.import_module('spt.services.models')
-            #class_ = getattr(module, request.remote_class)
-            class_ = string_to_class(request.remote_class)
-            instance = class_()
+        class_ = string_to_class(request.remote_class)
+        instance = class_()
 
-            # Obtention et exécution de la méthode
-            method = getattr(instance, request.remote_method)
-            request_model_class = string_to_class(request.request_model_class)
-            arg = request_model_class.model_validate(request.payload)
-            result = method(arg)
+        method = getattr(instance, request.remote_method)
+        request_model_class = string_to_class(request.request_model_class)
+        arg = request_model_class.model_validate(request.payload)
+        result = method(arg)
 
-            return result
-
-        #except ImportError as e:
-            # Gestion des erreurs d'importation
-        #    return f"Error importing module or class: {str(e)}"
-        #except AttributeError as e:
-            # Gestion des erreurs liées à l'absence de méthodes ou de classes
-        #    return f"Method or class not found: {str(e)}"
-        #except TypeError as e:
-            # Gestion des erreurs de paramètres incorrects ou manquants
-        #    return f"Error in method arguments: {str(e)}"
-        #except Exception as e:
-            # Gestion de toutes les autres erreurs possibles
-        #    return f"An error occurred: {str(e)}"
-
+        return result
 
 def gpu_infos():
     try:
@@ -96,7 +76,7 @@ def gpu_infos():
             memory_info = nvmlDeviceGetMemoryInfo(handle)
             utilization = nvmlDeviceGetUtilizationRates(handle)
             
-            logger.info(f"GPU {i}: {name.decode('utf-8')}")
+            logger.info(f"GPU {i}: {name}")
             logger.info(f"  Mémoire Totale: {memory_info.total / (1024 ** 3):.2f} GB")
             logger.info(f"  Mémoire Utilisée: {memory_info.used / (1024 ** 3):.2f} GB")
             logger.info(f"  Mémoire Libre: {memory_info.free / (1024 ** 3):.2f} GB")

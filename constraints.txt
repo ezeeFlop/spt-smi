@@ -45,7 +45,7 @@ gunicorn==21.2.0
 h11==0.14.0
 httpcore==1.0.4
 httplib2==0.22.0
-httpx==0.26.0
+httpx==0.27.0
 httpx-sse==0.4.0
 huggingface-hub==0.22.1
 humanfriendly==10.0
@@ -82,6 +82,7 @@ multidict==6.0.5
 mypy-extensions==1.0.0
 networkx==3.2.1
 numpy==1.26.4
+ollama==0.1.8
 ollama-python==0.1.2
 openai==1.14.3
 opencv-contrib-python==4.9.0.80
@@ -107,6 +108,7 @@ pydantic==2.6.4
 pydantic_core==2.16.3
 pydeck==0.8.1b0
 Pygments==2.17.2
+pynvml==11.5.0
 pyparsing==3.1.2
 pytest==8.1.1
 python-dateutil==2.9.0.post0
