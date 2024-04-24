@@ -1,5 +1,5 @@
 from spt.models.llm import ChatRequest, ChatResponse, ChatMessage, EmbeddingsRequest, EmbeddingsResponse
-from ollama import Client
+from ollama import Client, ResponseError
 from config import OLLAMA_URL
 from spt.services.service import Service
 from spt.services.generic.service import GenericServiceServicer
@@ -25,9 +25,9 @@ class LLMModels(Service):
                                     keep_alive=request.keep_alive, 
                                     stream=request.stream, 
                                     format=request.format)
-        except ollama.ResponseError as e:
+        except ResponseError as e:
             if e.status_code ==  404:
-                ollama.pull(request.model)
+                self.client.pull(request.model)
             result = self.client.chat(model=request.model,
                                         messages=[m.model_dump()
                                                 for m in request.messages],
