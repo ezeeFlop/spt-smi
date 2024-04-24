@@ -2,6 +2,9 @@ import torch
 import logging
 
 from spt.models.llm import ChatRequest, ChatResponse, ChatMessage
+from ollama import Client
+
+from config import OLLAMA_URL
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +12,8 @@ class LLMModels:
 
     def __init__(self, verbose=False) -> None:
         self.verbose = verbose
+        self.client = Client(host=OLLAMA_URL)
+
 
     def generate_chat(self, request: ChatRequest):
         logger.info(f"Generate Chat with {request}")

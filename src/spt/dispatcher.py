@@ -1,12 +1,14 @@
 from spt.jobs import Job
 from spt.services.generic.client import GenericClient
 from spt.models.jobs import JobStatuses, JobsTypes
+from spt.models.remotecalls import MethodCallError
 import logging
 from config import IMAGEGENERATION_SERVICE_PORT, IMAGEGENERATION_SERVICE_HOST, LLM_SERVICE_HOST, LLM_SERVICE_PORT
 from spt.jobs import Jobs
 from google.protobuf.json_format import MessageToJson
 import traceback
 import json
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -34,15 +36,25 @@ class Dispatcher:
             elif job.type == JobsTypes.llm_generation:
                 response = self.llmClient.process_data(job)
 
-            message = response.json_payload.decode('utf-8')
+            payload = response.json_payload.decode('utf-8')
 
-            await self.jobs.set_job_result(job, {
-                "payload": message,
-            })
-            await self.jobs.set_job_status(job, JobStatuses.completed)
-            logger.info(f"Job {job.id} completed {message}")
+            if "status" in payload:
+                logger.error(f"Job {job.id} failed: {payload}")
+                error = MethodCallError(**json.loads(payload))
+                if error.status == JobStatuses.failed:
+                    await self.jobs.set_job_result(job, {
+                        "payload": {},
+                    })
+                    await self.jobs.set_job_status(job, JobStatuses.failed, message=error.message)
+            else:
+                await self.jobs.set_job_result(job, {
+                    "payload": payload,
+                })
+                await self.jobs.set_job_status(job, JobStatuses.completed)
+
+            logger.info(f"Job {job.id} completed {payload}")
    
         except Exception as e:
             logger.error(f"Failed to dispatch job {job.id}: {e} stack trace: {traceback.format_exc()}")
-            await self.jobs.set_job_status(job, JobStatuses.failed, message=str(e))
+            await self.jobs.set_job_status(job, JobStatuses.failed, message=f"Failed to dispatch job: {str(e)}: {traceback.format_exc()}")
   

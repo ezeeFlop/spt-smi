@@ -11,16 +11,13 @@ from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatR
 from spt.models.remotecalls import class_to_string, string_to_class
 from spt.jobs import Job, Jobs
 import time
-import json
-from config import POLLING_TIMEOUT, OLLAMA_HOST, OLLAMA_PORT
+from config import POLLING_TIMEOUT
 from typing import Union
 import asyncio
 from rich.logging import RichHandler
 from rich.console import Console
 import logging
 import base64
-import httpx
-from httpx import AsyncClient, Timeout
 from pydantic import BaseModel
 from typing import Type, Any
 
@@ -147,11 +144,8 @@ async def list_engines(api_key: str = Depends(get_api_key)):
 
 # New endpoints calling the OLLAMA API
 
-timeout = Timeout(10.0, connect=60.0, read=60.0)
-
 @app.post("/v1/generate/completion", response_model=GenerateResponse, tags=["Text Generation"])
 async def generate_completion(request_data: GenerateRequest, api_key: str = Depends(get_api_key)):
-    url = f"http://{OLLAMA_HOST}:{OLLAMA_PORT}/api/generate"
     pass
 
 @app.post("/v1/generate/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])

@@ -33,5 +33,6 @@ grpcio-tools
 pretty_errors
 fastapi
 datamodel-code-generator
-ollama-python
+ollama
 rich
+pynvml

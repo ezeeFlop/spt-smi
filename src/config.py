@@ -30,12 +30,10 @@ LLM_SERVICE_PORT = os.environ['LLM_SERVICE_PORT'] if os.environ.get(
 LLM_SERVICE_HOST = os.environ['LLM_SERVICE_HOST'] if os.environ.get(
     'LLM_SERVICE_HOST') else "localhost"
 
+# OLLAMA Url
 
-
-OLLAMA_HOST = os.environ['OLLAMA_HOST'] if os.environ.get(
-    'OLLAMA_HOST') else "localhost"
-OLLAMA_PORT = os.environ['OLLAMA_PORT'] if os.environ.get(
-    'OLLAMA_PORT') else 11434
+OLLAMA_URL = os.environ['OLLAMA_URL'] if os.environ.get(
+    'OLLAMA_URL') else "http://localhost:11434"
 
 
 POLLING_TIMEOUT = 500

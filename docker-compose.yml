@@ -46,7 +46,7 @@ services:
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
-      - IMAGEGENERATION_SERVICE_PORT=55002
+      - IMAGEGENERATION_SERVICE_PORT=55001
       - IMAGEGENERATION_SERVICE_HOST=spt-smi_imageservice
       - LLM_SERVICE_PORT=55002
       - LLM_SERVICE_HOST=spt-smi_llmservice

@@ -4,11 +4,15 @@ import generic_pb2
 import generic_pb2_grpc
 import logging
 from config import LLM_SERVICE_PORT, LLM_SERVICE_HOST
-from spt.models.remotecalls import MethodCallRequest, string_to_class
+from spt.models.remotecalls import MethodCallRequest, string_to_class, MethodCallError
+from spt.models.jobs import JobStatuses
 from pydantic import BaseModel, ValidationError, validator
 import json 
 from typing import Type, Any
 import argparse
+import traceback
+from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvmlDeviceGetName, nvmlDeviceGetMemoryInfo, nvmlDeviceGetUtilizationRates, NVMLError
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('grpc-server')
 
@@ -34,13 +38,16 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             request = MethodCallRequest.model_validate(payload)
             response = self.execute_method(request)
             logger.info(response)
-            response = response.model_dump_json().encode('utf-8')
-        except ValidationError as e:
-            print(f"Validation Error: {str(e)}")
+        except Exception as e:
+            response = MethodCallError(status=JobStatuses.failed, message=f"Failed to dispatch job: {str(e)}: {traceback.format_exc()}")
+            logger.error(response)
+
+        response = response.model_dump_json().encode('utf-8')
+
         return generic_pb2.GenericResponse(json_payload=response)
 
     def execute_method(self, request:MethodCallRequest) -> Type[BaseModel]:
-        try:
+        #try:
             # Importation dynamique des classes
             #module = importlib.import_module('spt.services.models')
             #class_ = getattr(module, request.remote_class)
@@ -52,20 +59,59 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             request_model_class = string_to_class(request.request_model_class)
             arg = request_model_class.model_validate(request.payload)
             result = method(arg)
+
             return result
 
-        except ImportError as e:
+        #except ImportError as e:
             # Gestion des erreurs d'importation
-            return f"Error importing module or class: {str(e)}"
-        except AttributeError as e:
+        #    return f"Error importing module or class: {str(e)}"
+        #except AttributeError as e:
             # Gestion des erreurs liées à l'absence de méthodes ou de classes
-            return f"Method or class not found: {str(e)}"
-        except TypeError as e:
+        #    return f"Method or class not found: {str(e)}"
+        #except TypeError as e:
             # Gestion des erreurs de paramètres incorrects ou manquants
-            return f"Error in method arguments: {str(e)}"
-        except Exception as e:
+        #    return f"Error in method arguments: {str(e)}"
+        #except Exception as e:
             # Gestion de toutes les autres erreurs possibles
-            return f"An error occurred: {str(e)}"
+        #    return f"An error occurred: {str(e)}"
+
+
+def gpu_infos():
+    try:
+        # Tentative d'initialisation de NVML
+        nvmlInit()
+    except NVMLError as e:
+        logger.error(f"NVML ne peut pas être initialisé : {e}")
+        return
+
+    try:
+        # Compter le nombre de GPU disponibles
+        device_count = nvmlDeviceGetCount()
+        logger.info(f"Nombre de GPU détectés : {device_count}")
+
+        # Itérer sur chaque GPU et afficher les informations
+        for i in range(device_count):
+            handle = nvmlDeviceGetHandleByIndex(i)
+            name = nvmlDeviceGetName(handle)
+            memory_info = nvmlDeviceGetMemoryInfo(handle)
+            utilization = nvmlDeviceGetUtilizationRates(handle)
+            
+            logger.info(f"GPU {i}: {name.decode('utf-8')}")
+            logger.info(f"  Mémoire Totale: {memory_info.total / (1024 ** 3):.2f} GB")
+            logger.info(f"  Mémoire Utilisée: {memory_info.used / (1024 ** 3):.2f} GB")
+            logger.info(f"  Mémoire Libre: {memory_info.free / (1024 ** 3):.2f} GB")
+            logger.info(f"  Utilisation GPU: {utilization.gpu}%")
+            logger.info(f"  Utilisation Mémoire: {utilization.memory}%")
+    
+    except NVMLError as e:
+        logger.error(f"Erreur NVML lors de l'accès aux informations GPU : {e}")
+
+    finally:
+        # Assurez-vous de fermer NVML proprement
+        try:
+            nvmlShutdown()
+        except NVMLError as e:
+            logger.error(f"Erreur lors de la fermeture de NVML : {e}")
 
 def serve(max_workers=10, host="localhost", port=50052):
     server = grpc.server(futures.ThreadPoolExecutor(
@@ -91,4 +137,5 @@ if __name__ == '__main__':
    # Affichage des informations et démarrage du service
    logger.info(
        f"Starting Generic service on host {args.host} port {args.port}")
+   gpu_infos()
    serve(max_workers=10, host=args.host, port=args.port)

@@ -2,6 +2,7 @@ import json
 from pydantic import BaseModel, ValidationError, validator
 from typing import Any, Dict, Type
 import importlib
+from spt.models.jobs import JobStatuses
 
 class MethodCallRequest(BaseModel):
     remote_class: str
@@ -27,6 +28,10 @@ class MethodCallRequest(BaseModel):
         #    raise ValueError("Unauthorized method for class Product")
         return v
 
+
+class MethodCallError(BaseModel):
+    message: str
+    status: JobStatuses
 
 def string_to_class(class_path: str) -> Type[BaseModel]:
     module_name, class_name = class_path.rsplit('.', 1)
