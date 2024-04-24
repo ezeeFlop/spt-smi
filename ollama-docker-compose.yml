@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  api:
+    volumes:
+      - /usr/share/ollama/.ollama:/root/.ollama
+    tty: true
+    image: ollama/ollama:latest
+    ports:
+      - 11434:11434
+    networks:
+      - webfacing
+      - ollama
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.GPU == true
+
+networks:
+  webfacing:
+    external: true
+    driver: overlay
+  ollama:
+    driver: overlay

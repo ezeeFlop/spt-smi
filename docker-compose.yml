@@ -46,7 +46,6 @@ services:
       - REDIS_HOST=spt-smi_redis
       - IMAGE_GENERATION=spt-smi_imageservice:55001
       - LLM_GENERATION=spt-smi_llmservice:55002
-      - OLLAMA_URL=ollama_api:11434
       - CONFIG_PATH=/configs
     volumes:
       - /data/smi/prod/data:/data
@@ -66,9 +65,11 @@ services:
     networks:
       - servicesworkers
       - dbs
+      - ollama
     depends_on:
       - redis
       - rabbitmq
+      - ollama
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
@@ -76,6 +77,7 @@ services:
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
       - CONFIG_PATH=/configs
+      - OLLAMA_URL=spt-smi_ollama:11434
     volumes:
       - /data/smi/prod/configs:/configs
       - /data/smi/prod/data:/data
@@ -160,6 +162,21 @@ services:
     networks:
       - dbs
 
+  ollama:
+    volumes:
+      - /usr/share/ollama/.ollama:/root/.ollama
+    tty: true
+    image: ollama/ollama:latest
+    ports:
+      - 11434:11434
+    networks:
+      - ollama
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.GPU == true
+
 networks:
   servicesworkers:
     driver: overlay
@@ -167,6 +184,10 @@ networks:
     driver: overlay
     external: true
   dbs:
+    driver: overlay
+    internal: true
+    attachable: true
+  ollama:
     driver: overlay
     internal: true
     attachable: true

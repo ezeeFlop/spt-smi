@@ -16,13 +16,27 @@ class LLMModels(Service):
         self.client = Client(host=OLLAMA_URL, timeout=500)
 
     def generate_chat(self, request: ChatRequest):
-        logger.info(f"Generate Chat with {request.messages}")
-        result = self.client.chat(model=request.model, 
-                                  messages=[m.model_dump() for m in request.messages], 
-                                  options=request.options.model_dump(), 
-                                  keep_alive=request.keep_alive, 
-                                  stream=request.stream, 
-                                  format=request.format)
+        logger.info(f"Generate Chat with {request.messages} model {request.model}")
+        result = None
+        try:
+            result = self.client.chat(model=request.model, 
+                                    messages=[m.model_dump() for m in request.messages], 
+                                    options=request.options.model_dump(), 
+                                    keep_alive=request.keep_alive, 
+                                    stream=request.stream, 
+                                    format=request.format)
+        except ollama.ResponseError as e:
+            if e.status_code ==  404:
+                ollama.pull(request.model)
+            result = self.client.chat(model=request.model,
+                                        messages=[m.model_dump()
+                                                for m in request.messages],
+                                        options=request.options.model_dump(),
+                                        keep_alive=request.keep_alive,
+                                        stream=request.stream,
+                                        format=request.format)
+
+
         lastItem = None
 
         if request.stream and inspect.isgenerator(result):
