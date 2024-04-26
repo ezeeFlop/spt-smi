@@ -45,20 +45,16 @@ RUN apt-get update && \
         libharfbuzz-dev \
         libfribidi-dev \
         libpq-dev \
-#        texlive-full \
-        texlive-latex-extra \
         && apt-get clean
 
 # Étape 6: Installation de pandoc et LaTeX
-RUN apt-get update && apt-get install -y \
-    libgit2-dev \
-    gdal-bin \
-    libgdal-dev \
-    libudunits2-dev \
-    pandoc \
-    latexmk \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+#RUN apt-get update && apt-get install -y \
+#    libgit2-dev \
+#    gdal-bin \
+#    libgdal-dev \
+#    libudunits2-dev \
+#    && apt-get clean \
+#    && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home spt
 USER spt
@@ -72,8 +68,6 @@ RUN pip3 --no-cache-dir install torch torchvision torchaudio -f https://download
 
 COPY --chown=spt pyproject.toml constraints.txt requirements.txt *.sh ./
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools
-# && \
-#    python -m pip install --no-cache-dir -c constraints.txt ".[dev]"
 
 COPY --chown=spt src/ src/
 COPY --chown=spt models/ models/

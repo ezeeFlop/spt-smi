@@ -5,12 +5,10 @@ import generic_pb2_grpc
 import logging
 from spt.models.remotecalls import MethodCallRequest, string_to_class, MethodCallError, string_to_module
 from spt.models.jobs import JobStatuses
-from pydantic import BaseModel, ValidationError, validator
 import json 
-from typing import Type, Any
+from typing import Type
 import argparse
 import traceback
-from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvmlDeviceGetName, nvmlDeviceGetMemoryInfo, nvmlDeviceGetUtilizationRates, NVMLError, nvmlShutdown
 from spt.services.gpu import gpu_infos
 from rich.logging import RichHandler
 from rich.console import Console
@@ -118,6 +116,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
                 cleanup, cron='* * * * *', id=f"{self.current_class}_cleanup")
 
         elif self.current_class != request.request_model_class:
+            self.current_instance.cleanup()
             del self.current_instance
             gc.collect()
             self.current_class = request.request_model_class

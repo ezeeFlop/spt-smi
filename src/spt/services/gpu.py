@@ -13,7 +13,7 @@ def gpu_infos(display: bool = False) -> GPUsInfo:
         for i in range(nvmlDeviceGetCount()):
             handle = nvmlDeviceGetHandleByIndex(i)
             info = GPUInfo(
-                name=nvmlDeviceGetName(handle).decode('utf-8'),
+                name=nvmlDeviceGetName(handle),
                 memory_total_gb=nvmlDeviceGetMemoryInfo(
                     handle).total / (1024 ** 3),
                 memory_used_gb=nvmlDeviceGetMemoryInfo(

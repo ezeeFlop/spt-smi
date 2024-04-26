@@ -60,7 +60,6 @@ class GPUInfo(BaseModel):
     utilization_gpu_percent: int
     utilization_memory_percent: int
 
-
 class GPUsInfo(BaseModel):
     gpus: List[GPUInfo]
     error: Optional[str] = None
