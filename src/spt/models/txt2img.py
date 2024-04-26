@@ -141,7 +141,8 @@ class EngineResult(str, Enum):
     content_filtered = "CONTENT_FILTERED"
 
 class Artifact(BaseModel):
-    base64: str = Field(..., example="iVBORw0KGgoAAAANSUhEUgAAAO4AAAB...")
+    base64: Optional[str] = None
+    url: Optional[str] = None
     finishReason: EngineResult = Field(..., example="SUCCESS")
     seed: int = Field(..., example=1050625087)
 
@@ -149,6 +150,7 @@ class ArtifactsList(BaseModel):
     artifacts: List[Artifact] = Field(..., example=[
             {
                 "base64": "iVBORw0KGgoAAAANSUhEUgAAAO4AAAB...",
+                "url": "https://cdn.sponge-theory.io/...",
                 "finishReason": "SUCCESS",
                 "seed": 1050625087
             }

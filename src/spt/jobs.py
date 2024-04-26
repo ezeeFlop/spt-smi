@@ -1,5 +1,5 @@
 #import aioredis
-from config import REDIS_HOST
+from config import REDIS_HOST, SERVICE_KEEP_ALIVE
 import redis
 import uuid
 import json 
@@ -7,6 +7,9 @@ from spt.queue import QueueMessageSender, Headers, Priority, QueueMessageReceive
 from typing import List, Optional, Union
 from spt.models.jobs import JobStatuses, JobsTypes, JobResponse
 from spt.models.remotecalls import class_to_string, string_to_class
+from spt.models.task import FunctionTask, MethodTask
+
+from spt.scheduler import Scheduler
 from rich.logging import RichHandler
 from rich.console import Console
 import logging
@@ -23,13 +26,13 @@ console = Console()
 
 logging.basicConfig(
     level="INFO",
-    format="%(message)s",
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     datefmt="[%X]",
     handlers=[RichHandler(
         console=console, rich_tracebacks=True, show_time=False)]
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("Jobs")
 dispatcher = None
 
 class Job:
@@ -39,7 +42,10 @@ class Job:
                  model_id: Optional[str] = None, 
                  remote_class: Optional[str] = None, 
                  remote_method: Optional[str] = None,
-                 request_model_class: Optional[str] = None, response_model_class: Optional[str] = None) -> None:
+                 request_model_class: Optional[str] = None, 
+                 response_model_class: Optional[str] = None,
+                 storage: Optional[str] = None,
+                 keep_alive: Optional[int] = SERVICE_KEEP_ALIVE) -> None:
         self.id = uuid.uuid4().hex if id is None else id
         self.payload = payload
         self.status = JobStatuses.pending
@@ -50,6 +56,8 @@ class Job:
         self.remote_method = remote_method
         self.request_model_class = request_model_class
         self.response_model_class = response_model_class
+        self.keep_alive = keep_alive
+        self.storage = storage
         self.thread = None
 
 class Jobs:
@@ -125,7 +133,7 @@ class Jobs:
             self._send_job(job)
         except Exception as e:
             logger.error(f"Failed to add job {job.id} to queue: {e}")
-            self.set_job_status(job, JobStatuses.failed, message=str(e))
+            await self.set_job_status(job, JobStatuses.failed, message=str(e))
             return
         
         await self.set_job_status(job, JobStatuses.queued, )
@@ -148,7 +156,9 @@ class Jobs:
                             job_remote_class=job.remote_class, 
                             job_remote_method=job.remote_method, 
                             job_response_model_class=job.response_model_class, 
-                            job_request_model_class=job.request_model_class)
+                            job_request_model_class=job.request_model_class,
+                            job_storage=job.storage,
+                            job_keep_alive=job.keep_alive)
         )
 
     @sync
@@ -167,7 +177,9 @@ class Jobs:
                   remote_class=properties.headers['job_remote_class'], 
                   remote_method=properties.headers['job_remote_method'],
                   response_model_class=properties.headers['job_response_model_class'],
-                  request_model_class=properties.headers['job_request_model_class'])
+                  request_model_class=properties.headers['job_request_model_class'],
+                  keep_alive=properties.headers['job_keep_alive'],
+                  storage=properties.headers['job_storage'])
         
         await self.set_job_status(job, JobStatuses.in_progress)
         
@@ -261,15 +273,24 @@ def monitor_and_restart_jobs(jobs: List[Jobs], executor: concurrent.futures.Thre
 
 
 if __name__ == "__main__":
-    logger.info("Starting jobs receivers...")
+    logger.info("Starting scheduler...")
+
+    minioFilesPruner = MethodTask(method="prune_bucket", className="spt.storage.Storage", payload={
+                                        "bucket": JobsTypes.image_generation, "day_to_keep": 7})
+    scheduler = Scheduler()
+    scheduler.add_job_method(minioFilesPruner, "* * * * *")
+
+    logger.info("Starting jobs receiver...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         jobs_types = [JobsTypes.image_generation, JobsTypes.llm_generation, JobsTypes.audio_generation, JobsTypes.video_generation]
         jobs = [Jobs(job_type) for job_type in jobs_types]
         futures = [executor.submit(job.start_jobs_receiver_thread)
                    for job in jobs]
+        executor.submit(scheduler.start)
         logger.info("Started jobs receivers")
         monitor_thread = executor.submit(monitor_and_restart_jobs, jobs, executor)
         logger.info("Récepteurs de jobs démarrés et surveillance active.")
+
 
         # Attente (optionnelle) pour la démonstration; dans la pratique, tu pourrais vouloir
         # avoir une condition d'arrêt ou intégrer ceci dans ton système de manière différente.

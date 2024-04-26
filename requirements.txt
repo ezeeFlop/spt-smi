@@ -36,3 +36,6 @@ datamodel-code-generator
 ollama
 rich
 pynvml
+python-multipart
+apscheduler
+minio

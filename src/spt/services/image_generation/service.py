@@ -9,6 +9,9 @@ import base64
 import PIL
 import io
 import logging
+from spt.services.service import Service
+from spt.services.generic.service import GenericServiceServicer
+from spt.storage import Storage
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +28,21 @@ def remap(model_engines):
             }
     return models
 
-class DiffusionModels:
+class DiffusionModels(Service):
     models = remap(EnginesList.get_engines())
 
-    def __init__(self, verbose=False) -> None:
-        self.verbose = verbose
+    def __init__(self, servicer: GenericServiceServicer = None) -> None:
+        super().__init__(servicer=servicer)
+        self.model_id = None
+
+    def __del__(self):
+        pass
+
+    def cleanup(self):
+        super().cleanup()
+        if self.model_id is not None:
+            logger.info(f"Closing model {self.model_id}")
+            DiffusionModels.close_diffusion_pipe(self.model_id)
 
     @classmethod
     def get_model(cls, model_id):
@@ -106,6 +119,7 @@ class DiffusionModels:
     def generate_images(self, request: TextToImageRequest) -> ArtifactsList:
         logger.info(f"Generate Image with {request}")
         model = DiffusionModels.get_diffusion_pipe(request.model)
+        self.model_id = request.model
 
         if model["pipe"] is None:
             return None
@@ -125,14 +139,18 @@ class DiffusionModels:
             ).images[0]
             tampon_bytes = io.BytesIO()
             image.save(tampon_bytes, format='PNG')  # Tu peux changer 'PNG' en 'JPEG' selon le format souhaité
-
+   
             # Obtenir les bytes de l'image
             bytes_image = tampon_bytes.getvalue()
 
-            # Encoder les bytes en base64
-            image_base64 = base64.b64encode(bytes_image)
-
-            images.append({"base64": image_base64, "seed": 42, "finishReason": "SUCCESS"})
+            if self.should_store():
+                url = self.store_bytes(bytes=bytes_image, name=prompt.text, extension="png")
+                images.append({"url": url,
+                              "seed": 42, "finishReason": "SUCCESS"})
+            else:
+                 # Encoder les bytes en base64
+                image_base64 = base64.b64encode(bytes_image)            
+                images.append({"base64": image_base64, "seed": request.seed, "finishReason": "SUCCESS"})
 
         return ArtifactsList(artifacts=images)
 

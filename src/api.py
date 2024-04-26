@@ -11,7 +11,7 @@ from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatR
 from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo
 from spt.jobs import Job, Jobs
 import time
-from config import POLLING_TIMEOUT
+from config import POLLING_TIMEOUT, SERVICE_KEEP_ALIVE
 from typing import Union
 import asyncio
 from rich.logging import RichHandler
@@ -25,13 +25,13 @@ console = Console()
 
 logging.basicConfig(
     level="INFO",
-    format="%(message)s",
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     datefmt="[%X]",
     handlers=[RichHandler(
         console=console, rich_tracebacks=True, show_time=False)]
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("API")
 
 jobs = None
 dispatcher = None
@@ -91,6 +91,22 @@ async_key_header = APIKeyHeader(name="x-smi-async", auto_error=False)
 async def get_async_key(async_key: str = Security(async_key_header)):
     return async_key
 
+keep_alive_key_header = APIKeyHeader(name="x-smi-keep-alive", auto_error=False)
+
+async def get_keep_alive_key(keep_alive_key: int = Security(keep_alive_key_header)):
+    if keep_alive_key is None or keep_alive_key == 0:
+        return SERVICE_KEEP_ALIVE
+    return keep_alive_key
+
+storage_key_header = APIKeyHeader(name="x-smi-storage", auto_error=False)
+
+async def get_storage_key(storage_key: int = Security(storage_key_header)):
+    if storage_key is not None and storage_key != "S3":
+        raise HTTPException(status_code=401, detail="Storage key invalid value")
+    if storage_key is None:
+        storage_key = "local"
+    return storage_key
+
 """Logs requests to the logger.
 
 This middleware logs each request, the response time, 
@@ -107,10 +123,26 @@ async def log_requests(request: Request, call_next):
 
 
 @app.post("/v1/generation/{engine_id}/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Image Generation"])
-async def create_image(engine_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
+async def create_image(engine_id: str, 
+                       request_data: TextToImageRequest, 
+                       accept=Header(None), 
+                       api_key: str = Depends(get_api_key), 
+                       async_key: str = Depends(get_async_key), 
+                       keep_alive_key: int = Depends(get_keep_alive_key), 
+                       storage_key: str = Depends(get_storage_key)):
+    
     logger.info(f"Text To Image with engine_id: {engine_id}")
     request_data.model = engine_id
-    job = await add_job(request_data.model_dump_json(), JobsTypes.image_generation, engine_id, "generate_images", "spt.services.image_generation.service.DiffusionModels", TextToImageRequest, ArtifactsList)
+
+    job = await add_job(payload=request_data.model_dump_json(), 
+                        type=JobsTypes.image_generation, 
+                        model_id=engine_id,
+                        remote_method="generate_images", 
+                        remote_class="spt.services.image_generation.service.DiffusionModels", 
+                        request_model_class=TextToImageRequest, 
+                        response_model_class=ArtifactsList,
+                        storage=storage_key,
+                        keep_alive=keep_alive_key)
     result = await get_job_result(job, async_key)
 
     if async_key:
@@ -153,8 +185,21 @@ async def gpu_infos(api_key: str = Depends(get_api_key)):
 # New endpoints calling the OLLAMA API
 
 @app.post("/v1/generate/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])
-async def generate_chat(request_data: ChatRequest, api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
-    job = await add_job(request_data.model_dump_json(), JobsTypes.llm_generation, request_data.model, "generate_chat", "spt.services.llm_generation.service.LLMModels", ChatRequest, ChatResponse)
+async def generate_chat(request_data: ChatRequest, 
+                        api_key: str = Depends(get_api_key), 
+                        async_key: str = Depends(get_async_key), 
+                        keep_alive_key: int = Depends(get_keep_alive_key), 
+                        storage_key: str = Depends(get_storage_key)):
+    
+    job = await add_job(payload=request_data.model_dump_json(), 
+                        type=JobsTypes.llm_generation, 
+                        model_id=request_data.model,
+                        remote_method="generate_chat",
+                        remote_class="spt.services.llm_generation.service.LLMModels",
+                        request_model_class=ChatRequest,
+                        response_model_class=ChatResponse,
+                        storage=storage_key,
+                        keep_alive=keep_alive_key)
     return await get_job_result(job, async_key)
 
 
@@ -172,16 +217,29 @@ async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends
 
 
 @app.post("/v1/generate/embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Embeddings Generation"])
-async def generate_embeddings(request_data: EmbeddingsRequest, api_key: str = Depends(get_api_key), async_key: str = Depends(get_async_key)):
-    job = await add_job(request_data.model_dump_json(), JobsTypes.llm_generation, request_data.model, "generate_embeddings", "spt.services.llm_generation.service.LLMModels", EmbeddingsRequest, EmbeddingsResponse)
+async def generate_embeddings(request_data: EmbeddingsRequest, 
+                              api_key: str = Depends(get_api_key), 
+                              async_key: str = Depends(get_async_key), 
+                              keep_alive_key: int = Depends(get_keep_alive_key), 
+                              storage_key: str = Depends(get_storage_key)):
+    job = await add_job(payload=request_data.model_dump_json(), type=JobsTypes.llm_generation, 
+                        model_id=request_data.model, 
+                        remote_method="generate_embeddings", 
+                        remote_class="spt.services.llm_generation.service.LLMModels", 
+                        request_model_class=EmbeddingsRequest, 
+                        response_model_class=EmbeddingsResponse,
+                        storage=storage_key,
+                        keep_alive=keep_alive_key)
     return await get_job_result(job, async_key)
 
-async def add_job(payload: str, type: JobsTypes, model_id: str, remote_method: str, remote_class: str, request_model_class: Type[BaseModel], response_model_class: Type[BaseModel]) -> Job:
+async def add_job(payload: str, type: JobsTypes, model_id: str, remote_method: str, remote_class: str, request_model_class: Type[BaseModel], response_model_class: Type[BaseModel], keep_alive: int, storage:str) -> Job:
    job = Job(payload=payload,
              type=type, 
              model_id=model_id, 
              remote_method=remote_method, 
              remote_class=remote_class, 
+             keep_alive=keep_alive,
+             storage=storage,
              request_model_class=class_to_string(request_model_class), 
              response_model_class=class_to_string(response_model_class))
    await jobs[type].add_job(job)

@@ -18,6 +18,8 @@ RABBITMQ_PASSWORD = os.environ['RABBITMQ_DEFAULT_PASS'] if os.environ.get(
     'RABBITMQ_DEFAULT_PASS') else "jskdljflskdjflkjsqkjflkjqsldf564654"
 
 REDIS_HOST = os.environ['REDIS_HOST'] if os.environ.get('REDIS_HOST') else "localhost"
+REDIS_PORT = os.environ['REDIS_PORT'] if os.environ.get(
+    'REDIS_PORT') else 6379
 
 # Services ports
 
@@ -39,3 +41,22 @@ OLLAMA_URL = os.environ['OLLAMA_URL'] if os.environ.get(
 
 # Pooling delay in seconds for sync API requests
 POLLING_TIMEOUT = 500
+SERVICE_KEEP_ALIVE = 5 # in minutes
+
+# Storage Location
+STORAGE_PATH = os.environ['STORAGE_PATH'] if os.environ.get(
+    'STORAGE_PATH') else f"{csd}/../storage"
+
+# Minio configuration
+MINIO_ROOT_USER = os.environ['MINIO_ROOT_USER'] if os.environ.get(
+    'MINIO_ROOT_USER') else 'minioadmin'
+MINIO_ROOT_PASSWORD = os.environ['MINIO_ROOT_PASSWORD'] if os.environ.get(
+    'MINIO_ROOT_PASSWORD') else 'minioadmin'
+MINIO_SERVER_ENDPOINT = os.environ['MINIO_SERVER_ENDPOINT'] if os.environ.get(
+    'MINIO_SERVER_ENDPOINT') else "localhost:9000"
+MINIO_SERVER_URL = os.environ['MINIO_SERVER_URL'] if os.environ.get(
+    'MINIO_SERVER_URL') else "http://localhost:9000"
+MINIO_SECURE_URL = os.environ['MINIO_SECURE_URL'] if os.environ.get(
+    'MINIO_SECURE_URL') else False
+MINIO_FILE_DURATION = os.environ['MINIO_FILE_DURATION'] if os.environ.get(
+    'MINIO_FILE_DURATION') else 5

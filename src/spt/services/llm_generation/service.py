@@ -15,6 +15,10 @@ class LLMModels(Service):
         logger.info(f"Connecting to {OLLAMA_URL}")
         self.client = Client(host=OLLAMA_URL, timeout=500)
 
+    def __del__(self):
+        logger.info("Disconnecting from Ollama")
+        self.client.close()
+
     def generate_chat(self, request: ChatRequest):
         logger.info(f"Generate Chat with {request.messages} model {request.model}")
         result = None

@@ -4,8 +4,19 @@ import generic_pb2
 import generic_pb2_grpc
 from spt.jobs import Job
 import json
-# Configuration du logger
-logging.basicConfig(level=logging.INFO)
+from rich.logging import RichHandler
+from rich.console import Console
+
+console = Console()
+
+logging.basicConfig(
+    level="INFO",
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(
+        console=console, rich_tracebacks=True, show_time=False)]
+)
+
 logger = logging.getLogger(__name__)
 
 class GenericClient:
@@ -37,7 +48,9 @@ class GenericClient:
             remote_class=job.remote_class, 
             remote_method=job.remote_method, 
             request_model_class=job.request_model_class, 
-            response_model_class=job.response_model_class)
+            response_model_class=job.response_model_class,
+            storage=job.storage,
+            keep_alive=job.keep_alive)
         
         response = self.stub.ProcessData(request)
         logger.info(f"Service response with payload: {response.json_payload}")

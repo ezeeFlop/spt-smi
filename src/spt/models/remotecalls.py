@@ -11,6 +11,8 @@ class MethodCallRequest(BaseModel):
     response_model_class: Optional[str] = None
     remote_function: Optional[str] = None
     remote_module: Optional[str] = None
+    keep_alive: Optional[int] = None
+    storage: Optional[str] = None
     payload: Dict[str, Any]
 
     @validator('remote_class')
@@ -30,7 +32,6 @@ class MethodCallRequest(BaseModel):
         #    raise ValueError("Unauthorized method for class Product")
         return v
 
-
 class MethodCallError(BaseModel):
     message: str
     status: JobStatuses
@@ -45,11 +46,9 @@ def class_to_string(model_class: Type[BaseModel]) -> str:
     class_path = f"{model_class.__module__}.{model_class.__qualname__}"
     return class_path
 
-
 def string_to_module(module_path: str):
     module = importlib.import_module(module_path)
     return module
-
 
 # remote function call models response
 

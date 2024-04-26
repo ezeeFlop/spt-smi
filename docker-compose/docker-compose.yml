@@ -12,6 +12,7 @@ services:
     depends_on:
       - redis
       - rabbitmq
+      - minio
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
@@ -20,6 +21,9 @@ services:
       - IMAGE_GENERATION=spt-smi_imageservice:55001
       - LLM_GENERATION=spt-smi_llmservice:55002
       - CONFIG_PATH=/configs
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=Shes5z8pOv
+      - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
       - /data/smi/prod/data:/data
       - /data/smi/prod/configs:/configs
@@ -47,6 +51,9 @@ services:
       - IMAGE_GENERATION=spt-smi_imageservice:55001
       - LLM_GENERATION=spt-smi_llmservice:55002
       - CONFIG_PATH=/configs
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=Shes5z8pOv
+      - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
       - /data/smi/prod/data:/data
       - /data/smi/prod/configs:/configs
@@ -69,6 +76,7 @@ services:
     depends_on:
       - redis
       - rabbitmq
+      - minio
       - ollama
     environment:
       - RABBITMQ_DEFAULT_USER=root
@@ -78,12 +86,15 @@ services:
       - REDIS_HOST=spt-smi_redis
       - CONFIG_PATH=/configs
       - OLLAMA_URL=spt-smi_ollama:11434
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=Shes5z8pOv
+      - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
       - /data/smi/prod/configs:/configs
       - /data/smi/prod/data:/data
       - /data/smi/prod/cache:/home/spt/.cache
 
-    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55002"
+    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55002 --type LLM_SERVICE"
     deploy:
       replicas: 1
       placement:
@@ -101,6 +112,7 @@ services:
     depends_on:
       - redis
       - rabbitmq
+      - minio
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
@@ -108,12 +120,15 @@ services:
       - RABBITMQ_HOST=spt-smi_rabbitmq
       - REDIS_HOST=spt-smi_redis
       - CONFIG_PATH=/configs
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=Shes5z8pOv
+      - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
       - /data/smi/prod/configs:/configs
       - /data/smi/prod/data:/data
       - /data/smi/prod/cache:/home/spt/.cache
 
-    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55001"
+    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55001 --type IMAGE_SERVICE"
     deploy:
       replicas: 1
       placement:
@@ -162,6 +177,25 @@ services:
     networks:
       - dbs
 
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "19002:19002"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=root
+      - MINIO_ROOT_PASSWORD=Shes5z8pOv
+      - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
+      - MINIO_BROWSER_REDIRECT_URL=https://smi-minio-console.sponge-theory.dev
+      - MINIO_CONSOLE_PORT=9001
+      - MINIO_END_POINT=spt-smi_minio:9000
+    networks:
+      - dbs
+      - webfacing
+    command:  minio server /data --console-address ":19002"
+
   ollama:
     volumes:
       - /usr/share/ollama/.ollama:/root/.ollama
@@ -191,3 +225,6 @@ networks:
     driver: overlay
     internal: true
     attachable: true
+
+volumes:
+  minio_data:
