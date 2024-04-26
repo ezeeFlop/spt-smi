@@ -15,6 +15,7 @@ from rich.console import Console
 from spt.scheduler import Scheduler
 from spt.jobs import JobsTypes
 import gc
+from pydantic import BaseModel, Field, validator
 
 console = Console()
 
