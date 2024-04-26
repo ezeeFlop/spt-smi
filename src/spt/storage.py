@@ -33,8 +33,8 @@ class Storage:
         self.endpoint = MINIO_SERVER_ENDPOINT
         self.access_key = MINIO_ROOT_USER
         self.secret_key = MINIO_ROOT_PASSWORD
-        self.secure = False if MINIO_SERVER_URL.startswith(
-            "http") else True
+        self.secure = True if MINIO_SERVER_URL.startswith(
+            "https") else False
         self.client = self.create_client()
 
     def create_client(self) -> Minio:

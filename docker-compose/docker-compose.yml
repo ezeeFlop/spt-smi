@@ -22,6 +22,7 @@ services:
       - LLM_GENERATION=spt-smi_llmservice:55002
       - CONFIG_PATH=/configs
       - MINIO_ROOT_USER=root
+      - MINIO_SERVER_ENDPOINT=spt-smi_minio:9000
       - MINIO_ROOT_PASSWORD=Shes5z8pOv
       - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
@@ -52,6 +53,7 @@ services:
       - LLM_GENERATION=spt-smi_llmservice:55002
       - CONFIG_PATH=/configs
       - MINIO_ROOT_USER=root
+      - MINIO_SERVER_ENDPOINT=spt-smi_minio:9000
       - MINIO_ROOT_PASSWORD=Shes5z8pOv
       - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
@@ -87,6 +89,7 @@ services:
       - CONFIG_PATH=/configs
       - OLLAMA_URL=spt-smi_ollama:11434
       - MINIO_ROOT_USER=root
+      - MINIO_SERVER_ENDPOINT=spt-smi_minio:9000
       - MINIO_ROOT_PASSWORD=Shes5z8pOv
       - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
@@ -121,6 +124,7 @@ services:
       - REDIS_HOST=spt-smi_redis
       - CONFIG_PATH=/configs
       - MINIO_ROOT_USER=root
+      - MINIO_SERVER_ENDPOINT=spt-smi_minio:9000
       - MINIO_ROOT_PASSWORD=Shes5z8pOv
       - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
     volumes:
