@@ -51,6 +51,7 @@ services:
       - REDIS_HOST=spt-smi_redis
       - IMAGE_GENERATION=spt-smi_imageservice:55001
       - LLM_GENERATION=spt-smi_llmservice:55002
+      - AUDIO_GENERATION=spt-smi_audioservice:55003
       - CONFIG_PATH=/configs
       - MINIO_ROOT_USER=root
       - MINIO_SERVER_ENDPOINT=smi-minio.sponge-theory.dev
