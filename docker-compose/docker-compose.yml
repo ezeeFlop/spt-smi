@@ -163,10 +163,11 @@ services:
       - MINIO_SERVER_ENDPOINT=smi-minio.sponge-theory.dev
       - MINIO_ROOT_PASSWORD=Shes5z8pOv
       - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
-      - TEMP_PATH=/data/smi/prod/temp
+      - TEMP_PATH=/temp
     volumes:
       - /data/smi/prod/configs:/configs
       - /data/smi/prod/data:/data
+      - /data/smi/prod/temp:/temp
       - /data/smi/prod/cache:/home/spt/.cache
 
     command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55003 --type AUDIO_SERVICE"
