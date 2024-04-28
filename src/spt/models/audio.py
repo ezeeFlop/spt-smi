@@ -28,7 +28,6 @@ class AudioToTextRequest(BaseModel):
         return base64.b64encode(file).decode('utf-8')
     @validator('file', pre=True, always=True)
     def decode_file_from_base64(cls, v):
-        print("------> decode_file_from_base64")
         if isinstance(v, str):  # Assuming input will be a base64 string from JSON
             try:
                 return base64.b64decode(v)

@@ -41,16 +41,20 @@ class AudioModels(Service):
         # make log-Mel spectrogram and move to the same device as the model
         mel = whisper.log_mel_spectrogram(audio).to(
             self.audio_to_text_model.device)
+        language = request.language
 
-        # detect the spoken language
-        _, probs = self.audio_to_text_model.detect_language(mel)
-        logger.info(f"Detected language: {max(probs, key=probs.get)}")
+        if language is None:
+            # detect the spoken language
+            _, probs = self.audio_to_text_model.detect_language(mel)
+            logger.info(f"Detected language: {max(probs, key=probs.get)}")
+            language = max(probs, key=probs.get)
 
         # decode the audio
-        options = whisper.DecodingOptions()
+        options = whisper.DecodingOptions(
+            temperature=request.temperature, prompt=request.prompt, language=language, )
         result = whisper.decode(self.audio_to_text_model, mel, options)
 
-        response = AudioToTextResponse(language=result.language, text=result.text)
+        response = AudioToTextResponse(language=language, text=result.text)
         logger.info(f"Result: {response}")
 
         remove_temp_file(file)
