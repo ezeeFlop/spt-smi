@@ -44,8 +44,8 @@ POLLING_TIMEOUT = 500
 SERVICE_KEEP_ALIVE = 5 # in minutes
 
 # Storage Location
-STORAGE_PATH = os.environ['STORAGE_PATH'] if os.environ.get(
-    'STORAGE_PATH') else f"{csd}/../storage"
+TEMP_PATH = os.environ['TEMP_PATH'] if os.environ.get(
+    'TEMP_PATH') else f"{csd}/../temp"
 
 # Minio configuration
 MINIO_ROOT_USER = os.environ['MINIO_ROOT_USER'] if os.environ.get(

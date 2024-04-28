@@ -1,13 +1,13 @@
-from fastapi import FastAPI, HTTPException, Depends, Security, Request, Response, Header
+from fastapi import FastAPI, HTTPException, Depends, Security, Request, Response, Header, UploadFile, Form, File
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import StreamingResponse
-
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from keys import API_KEY
 from spt.models.jobs import JobsTypes, JobStatuses, JobResponse
 from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
 from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
+from spt.models.audio import AudioToTextRequest, AudioToTextResponse
 from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo
 from spt.jobs import Job, Jobs
 import time
@@ -19,7 +19,7 @@ from rich.console import Console
 import logging
 import base64
 from pydantic import BaseModel
-from typing import Type, Any
+from typing import Type, Any, Optional, Union
 
 console = Console()
 
@@ -232,6 +232,41 @@ async def generate_embeddings(request_data: EmbeddingsRequest,
                         keep_alive=keep_alive_key)
     return await get_job_result(job, async_key)
 
+
+@app.post("/v1/generation/audio-to-text", response_model=Union[JobResponse, AudioToTextResponse], tags=["Audio To Text Generation"])
+async def audio_to_text(
+    file: UploadFile = File(...),
+    model: str = Form(...),
+    language: Optional[str] = Form(None),
+    temperature: Optional[float] = Form(0),
+    prompt: Optional[str] = Form(None),
+    keep_alive: Optional[str] = Form(None),
+    api_key: str = Depends(get_api_key),
+    async_key: str = Depends(get_async_key),
+    keep_alive_key: int = Depends(get_keep_alive_key),
+    storage_key: str = Depends(get_storage_key)
+):
+    file_content = await file.read()
+    request_data = AudioToTextRequest(
+        model=model,
+        file=file_content,
+        language=language,
+        temperature=temperature,
+        prompt=prompt,
+        keep_alive=keep_alive
+    )
+    job = await add_job(
+        payload=request_data.model_dump_json(),  # Assuming you serialize to JSON if needed
+        type=JobsTypes.audio_generation,
+        model_id=request_data.model,
+        remote_method="audio_to_text",
+        remote_class="spt.services.audio_generation.service.AudioModels",
+        request_model_class=AudioToTextRequest,
+        response_model_class=AudioToTextResponse,
+        storage=storage_key,
+        keep_alive=keep_alive_key
+    )
+    return await get_job_result(job, async_key)
 async def add_job(payload: str, type: JobsTypes, model_id: str, remote_method: str, remote_class: str, request_model_class: Type[BaseModel], response_model_class: Type[BaseModel], keep_alive: int, storage:str) -> Job:
    job = Job(payload=payload,
              type=type, 

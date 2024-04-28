@@ -15,6 +15,7 @@ google-api-python-client
 tiktoken
 watchdog
 openai
+openai-whisper
 altair==4.0
 Flask
 gunicorn
