@@ -140,6 +140,28 @@ class Jobs:
 
         logger.info(f"Job {job.id} added to queue {self.routing_key}")
 
+
+    @classmethod
+    async def create_job(cls, payload: str,
+                        type: JobsTypes,
+                        model_id: str,
+                        remote_method: str,
+                        remote_class: str,
+                        request_model_class: Type[BaseModel],
+                        response_model_class: Type[BaseModel],
+                        keep_alive: int,
+                        storage: str) -> Job:
+        job = Job(payload=payload,
+                    type=type,
+                    model_id=model_id,
+                    remote_method=remote_method,
+                    remote_class=remote_class,
+                    keep_alive=keep_alive,
+                    storage=storage,
+                    request_model_class=class_to_string(request_model_class),
+                    response_model_class=class_to_string(response_model_class))
+        return job
+
     def _send_job(self, job: Job):
         if self.publisher is None:
             self.publisher = QueueMessageSender()
@@ -167,7 +189,7 @@ class Jobs:
 
         body = self.consumer.decode_message(body=body)
         
-        logger.info(f"---> Receive Job {channel}, {method} {properties} Body received {body}")
+        logger.info(f"---> Receive Job {channel}, {method} {properties}")
         logger.info(
             f"----> JOB ID {properties.headers['job_id']} TYPE {properties.headers['job_type']} MODEL ID {properties.headers['job_model_id']} CLASS {properties.headers['job_remote_class']} METHOD {properties.headers['job_remote_method']} Response Model Class {properties.headers['job_response_model_class']} Request Model Class {properties.headers['job_request_model_class']}")
         
@@ -188,7 +210,6 @@ class Jobs:
             dispatcher = Dispatcher()
 
         await dispatcher.dispatch_job(job)
-
 
     def start_jobs_receiver_thread(self):
         """

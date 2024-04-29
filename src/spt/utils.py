@@ -3,7 +3,6 @@ import json
 import tempfile
 import logging
 from config import TEMP_PATH
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +17,10 @@ def load_json(file, dir="./"):
         return None
     
 def create_temp_file(content: bytes) -> str:
-    uuid_name = str(uuid.uuid4())
-    temp_file = open(f"{TEMP_PATH}/{uuid_name}", "wb")
+    temp_file = tempfile.NamedTemporaryFile(delete=False, dir=TEMP_PATH)
     temp_file.write(content)
     temp_file.close()
-    return f"{TEMP_PATH}/{uuid_name}"
+    return temp_file.name
 
 def remove_temp_file(file_path: str) -> None:
     if os.path.exists(file_path):

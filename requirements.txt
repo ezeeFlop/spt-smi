@@ -40,3 +40,4 @@ pynvml
 python-multipart
 apscheduler
 minio
+TTS @ git+https://github.com/coqui-ai/TTS@fa28f99f1508b5b5366539b2149963edcb80ba62

@@ -4,10 +4,11 @@ from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from keys import API_KEY
-from spt.models.jobs import JobsTypes, JobStatuses, JobResponse
+from spt.models.jobs import JobsTypes, JobStatuses, JobResponse, JobPriority
 from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
 from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
-from spt.models.audio import AudioToTextRequest, AudioToTextResponse
+from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
+
 from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo
 from spt.jobs import Job, Jobs
 import time
@@ -92,20 +93,27 @@ async def get_async_key(async_key: str = Security(async_key_header)):
     return async_key
 
 keep_alive_key_header = APIKeyHeader(name="x-smi-keep-alive", auto_error=False)
-
 async def get_keep_alive_key(keep_alive_key: int = Security(keep_alive_key_header)):
     if keep_alive_key is None or keep_alive_key == 0:
         return SERVICE_KEEP_ALIVE
     return keep_alive_key
 
 storage_key_header = APIKeyHeader(name="x-smi-storage", auto_error=False)
-
-async def get_storage_key(storage_key: int = Security(storage_key_header)):
+async def get_storage_key(storage_key: str = Security(storage_key_header)):
     if storage_key is not None and storage_key != "S3":
         raise HTTPException(status_code=401, detail="Storage key invalid value")
     if storage_key is None:
         storage_key = "local"
     return storage_key
+
+
+priority_key_header = APIKeyHeader(name="x-smi-priority", auto_error=False)
+async def get_priority_key(priority_key: str = Security(priority_key_header)):
+    if priority_key is None:
+        priority_key = JobPriority.low
+    if priority_key not in [JobPriority.low, JobPriority.normal, JobPriority.high]:
+        raise HTTPException(status_code=401, detail="Priority key invalid value")
+    return priority_key
 
 """Logs requests to the logger.
 
@@ -121,42 +129,40 @@ async def log_requests(request: Request, call_next):
         f"Requête: {request.method} {request.url} - Temps de traitement: {process_time} secondes")
     return response
 
-
-@app.post("/v1/generation/{engine_id}/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Image Generation"])
-async def create_image(engine_id: str, 
-                       request_data: TextToImageRequest, 
+@app.post("/v1/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Image Generation"])
+async def text_to_image(request_data: TextToImageRequest, 
                        accept=Header(None), 
                        api_key: str = Depends(get_api_key), 
                        async_key: str = Depends(get_async_key), 
                        keep_alive_key: int = Depends(get_keep_alive_key), 
-                       storage_key: str = Depends(get_storage_key)):
+                       storage_key: str = Depends(get_storage_key),
+                       priority_key: str = Depends(get_priority_key)):
     
-    logger.info(f"Text To Image with engine_id: {engine_id}")
-    request_data.model = engine_id
+    logger.info(f"Text To Image with engine_id: {request_data.model}")
 
-    job = await add_job(payload=request_data.model_dump_json(), 
+    job = await Jobs.create_job(payload=request_data.model_dump_json(), 
                         type=JobsTypes.image_generation, 
-                        model_id=engine_id,
+                        model_id=request_data.model,
                         remote_method="generate_images", 
                         remote_class="spt.services.image_generation.service.DiffusionModels", 
                         request_model_class=TextToImageRequest, 
                         response_model_class=ArtifactsList,
                         storage=storage_key,
                         keep_alive=keep_alive_key)
-    result = await get_job_result(job, async_key)
+    
+    result = await submit_job(job, async_key, priority_key)
 
     if async_key:
         return result
     
     if accept == "image/png" and isinstance(result, ArtifactsList):
-        # Suppose que le premier artifact contient l'image que tu veux retourner
         image_data = base64.b64decode(result.artifacts[0].base64)
         return Response(content=image_data, media_type="image/png")
     
     return result
 
-@app.get("/v1/generation/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList])
-async def create_image(job_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key)):
+@app.get("/v1/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList])
+async def text_to_image(job_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key)):
     logger.info(f"Text To Image job retreival: {job_id}")
     job = Job(id=job_id, type=JobsTypes.image_generation, response_model_class=class_to_string(ArtifactsList))
     status = await jobs[JobsTypes.image_generation].get_job_status(job)
@@ -184,14 +190,14 @@ async def gpu_infos(api_key: str = Depends(get_api_key)):
 
 # New endpoints calling the OLLAMA API
 
-@app.post("/v1/generate/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])
+@app.post("/v1/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])
 async def generate_chat(request_data: ChatRequest, 
                         api_key: str = Depends(get_api_key), 
                         async_key: str = Depends(get_async_key), 
                         keep_alive_key: int = Depends(get_keep_alive_key), 
-                        storage_key: str = Depends(get_storage_key)):
+                        storage_key: str = Depends(get_storage_key), priority_key: str = Depends(get_priority_key)):
     
-    job = await add_job(payload=request_data.model_dump_json(), 
+    job = await Jobs.create_job(payload=request_data.model_dump_json(), 
                         type=JobsTypes.llm_generation, 
                         model_id=request_data.model,
                         remote_method="generate_chat",
@@ -200,10 +206,11 @@ async def generate_chat(request_data: ChatRequest,
                         response_model_class=ChatResponse,
                         storage=storage_key,
                         keep_alive=keep_alive_key)
-    return await get_job_result(job, async_key)
+
+    return await submit_job(job, async_key, priority_key)
 
 
-@app.get("/v1/generate/chat/{job_id}", response_model=Union[JobResponse, ChatResponse])
+@app.get("/v1/chat/{job_id}", response_model=Union[JobResponse, ChatResponse])
 async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends(get_api_key)):
     logger.info(f"LLM Chat generation job retreival: {job_id}")
     job = Job(id=job_id, type=JobsTypes.llm_generation,
@@ -216,13 +223,13 @@ async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
 
 
-@app.post("/v1/generate/embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Embeddings Generation"])
+@app.post("/v1/embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Embeddings Generation"])
 async def generate_embeddings(request_data: EmbeddingsRequest, 
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
                               keep_alive_key: int = Depends(get_keep_alive_key), 
-                              storage_key: str = Depends(get_storage_key)):
-    job = await add_job(payload=request_data.model_dump_json(), type=JobsTypes.llm_generation, 
+                              storage_key: str = Depends(get_storage_key), priority_key: str = Depends(get_priority_key)):
+    job = await Jobs.create_job(payload=request_data.model_dump_json(), type=JobsTypes.llm_generation, 
                         model_id=request_data.model, 
                         remote_method="generate_embeddings", 
                         remote_class="spt.services.llm_generation.service.LLMModels", 
@@ -230,11 +237,12 @@ async def generate_embeddings(request_data: EmbeddingsRequest,
                         response_model_class=EmbeddingsResponse,
                         storage=storage_key,
                         keep_alive=keep_alive_key)
-    return await get_job_result(job, async_key)
+
+    return await submit_job(job, async_key, priority_key)
 
 
-@app.post("/v1/generation/audio-to-text", response_model=Union[JobResponse, AudioToTextResponse], tags=["Audio To Text Generation"])
-async def audio_to_text(
+@app.post("/v1/speech-to-text", response_model=Union[JobResponse, SpeechToTextResponse], tags=["Audio To Text Generation"])
+async def speech_to_text(
     file: UploadFile = File(...),
     model: str = Form(...),
     language: Optional[str] = Form(None),
@@ -244,10 +252,11 @@ async def audio_to_text(
     api_key: str = Depends(get_api_key),
     async_key: str = Depends(get_async_key),
     keep_alive_key: int = Depends(get_keep_alive_key),
-    storage_key: str = Depends(get_storage_key)
+    storage_key: str = Depends(get_storage_key),
+    priority_key: str = Depends(get_priority_key)
 ):
     file_content = await file.read()
-    request_data = AudioToTextRequest(
+    request_data = SpeechToTextRequest(
         model=model,
         file=file_content,
         language=language,
@@ -255,30 +264,47 @@ async def audio_to_text(
         prompt=prompt,
         keep_alive=keep_alive
     )
-    job = await add_job(
+    job = await Jobs.create_job(
         payload=request_data.model_dump_json(),  # Assuming you serialize to JSON if needed
         type=JobsTypes.audio_generation,
         model_id=request_data.model,
-        remote_method="audio_to_text",
-        remote_class="spt.services.audio_generation.service.AudioModels",
-        request_model_class=AudioToTextRequest,
-        response_model_class=AudioToTextResponse,
+        remote_method="speech_to_text",
+        remote_class="spt.services.audio_generation.service.STTService",
+        request_model_class=SpeechToTextRequest,
+        response_model_class=SpeechToTextResponse,
         storage=storage_key,
         keep_alive=keep_alive_key
     )
+
+    return await submit_job(job, async_key, priority_key)
+
+@app.post("/v1/text-to-speech", response_model=Union[JobResponse, TextToSpeechResponse], tags=["Audio To Text Generation"])
+async def generate_text_to_speech(request_data: TextToSpeechRequest, 
+                              api_key: str = Depends(get_api_key), 
+                              async_key: str = Depends(get_async_key), 
+                              keep_alive_key: int = Depends(get_keep_alive_key), 
+                              storage_key: str = Depends(get_storage_key), priority_key: str = Depends(get_priority_key)):
+
+    job = await Jobs.create_job(
+        payload=request_data.model_dump_json(),  # Assuming you serialize to JSON if needed
+        type=JobsTypes.audio_generation,
+        model_id=request_data.model,
+        remote_method="speech_to_text",
+        remote_class="spt.services.audio_generation.service.TTSService",
+        request_model_class=TextToSpeechRequest,
+        response_model_class=TextToSpeechResponse,
+        storage=storage_key,
+        keep_alive=keep_alive_key
+    )
+
+    return await submit_job(job, async_key, priority_key)
+
+
+async def submit_job(job: Job, async_key: str, priority_key: str):
+    if priority_key == JobPriority.high:
+        return await dispatcher.execute_job(job)
+    await jobs[job.type].add_job(job)
     return await get_job_result(job, async_key)
-async def add_job(payload: str, type: JobsTypes, model_id: str, remote_method: str, remote_class: str, request_model_class: Type[BaseModel], response_model_class: Type[BaseModel], keep_alive: int, storage:str) -> Job:
-   job = Job(payload=payload,
-             type=type, 
-             model_id=model_id, 
-             remote_method=remote_method, 
-             remote_class=remote_class, 
-             keep_alive=keep_alive,
-             storage=storage,
-             request_model_class=class_to_string(request_model_class), 
-             response_model_class=class_to_string(response_model_class))
-   await jobs[type].add_job(job)
-   return job
 
 async def get_job_result(job: Job, async_key: str) -> Type[BaseModel] | JobResponse:
     if async_key:

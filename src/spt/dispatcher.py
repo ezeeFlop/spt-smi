@@ -1,7 +1,7 @@
 from spt.jobs import Job
 from spt.services.generic.client import GenericClient
-from spt.models.jobs import JobStatuses, JobsTypes
-from spt.models.remotecalls import MethodCallError, class_to_string
+from spt.models.jobs import JobStatuses, JobsTypes, JobResponse
+from spt.models.remotecalls import MethodCallError, class_to_string, string_to_class
 import logging
 from config import IMAGE_GENERATION, IMAGE_PROCESSING, VIDEO_GENERATION, LLM_GENERATION, AUDIO_GENERATION
 from spt.jobs import Jobs
@@ -18,7 +18,7 @@ class Dispatcher:
     def __init__(self) -> None:
         self.jobs = Jobs()
         logger.info("Initializing dispatcher")
-        self.clients = {}
+        self.clients: dict[JobsTypes, GenericClient] = {}
         configs = {
             JobsTypes.image_generation: IMAGE_GENERATION,
             JobsTypes.llm_generation: LLM_GENERATION,
@@ -44,6 +44,24 @@ class Dispatcher:
         except Exception as e:
             logger.error(
                 f"Failed to run remote function {remote_function}: {e} stack trace: {traceback.format_exc()}")
+
+    async def execute_job(self, job: Job):
+        logger.info(f"Executing job {job.id} {job.type}")
+        job.payload = json.loads(job.payload)
+
+        response = self.clients[job.type].process_data(job)
+        
+        payload = response.json_payload.decode('utf-8')
+
+        if "status" in payload:
+            logger.error(f"Job {job.id} failed: {payload}")
+            error = MethodCallError(**json.loads(payload))
+            if error.status == JobStatuses.failed:
+                return JobResponse(id=job.id, status=error.status, type=JobsTypes.unknown, message=error.message)
+        else:
+            response_model_class = string_to_class(job.response_model_class)
+            result = response_model_class.model_validate_json(payload)
+            return result
 
     async def dispatch_job(self, job: Job):
         logger.info(f"Dispatching job {job.id} {job.type}")

@@ -2,9 +2,20 @@ import logging
 import json
 from spt.models.remotecalls import GPUsInfo, GPUInfo
 from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvmlDeviceGetName, nvmlDeviceGetMemoryInfo, nvmlDeviceGetUtilizationRates, NVMLError, nvmlShutdown, NVMLError
+import torch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('grpc-server')
+
+
+def get_available_device():
+    if torch.backends.mps.is_available():
+        return torch.device('mps')
+    
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    else:
+        return torch.device('cpu')
 
 def gpu_infos(display: bool = False) -> GPUsInfo:
     try:

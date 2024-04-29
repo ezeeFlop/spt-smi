@@ -70,10 +70,10 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             'payload': payload
         }
         response = b'{}'
-        logger.info(f"Received request with payload: {payload} storage: {storage} keep_alive: {keep_alive}")  
+        logger.info(f"Received request with storage: {storage} keep_alive: {keep_alive}")  
         if remote_function is not None and len(remote_function) > 0:
             try:
-                logger.info(f"Try to call {remote_function} with payload: {payload}")
+                logger.info(f"Try to call {remote_function} ")
                 request = MethodCallRequest.model_validate(payload)
                 response = self.execute_function(request)
 
@@ -85,7 +85,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
                 logger.error(traceback.format_exc())
         else:
             try:
-                logger.info(f"Try to call {remote_class}.{remote_method} with payload: {payload}")
+                logger.info(f"Try to call {remote_class}.{remote_method}")
                 request = MethodCallRequest.model_validate(payload)
                 response = self.execute_method(request=request, storage=storage, keep_alive=keep_alive)
                 logger.info(response)

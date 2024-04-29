@@ -18,6 +18,10 @@ class JobStatuses(str, Enum):
     failed = "FAILED",
     unknown = "UNKNOWN"
 
+class JobPriority(str, Enum):
+    low = "LOW",
+    normal = "NORMAL",
+    high = "HIGH"
 
 class ServiceResponseStatus(str, Enum):
     success = "SUCCESS",

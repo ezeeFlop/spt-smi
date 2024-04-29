@@ -42,7 +42,7 @@ class GenericClient:
         string_payload = json.dumps(job.payload)
         json_payload = string_payload.encode('utf-8')
         logger.info(
-            f"Execute service request with payload: {json_payload}")
+            f"Execute service request Class {job.remote_class} Method {job.remote_method} ")
         request = generic_pb2.GenericRequest(
             json_payload=json_payload, 
             remote_class=job.remote_class, 

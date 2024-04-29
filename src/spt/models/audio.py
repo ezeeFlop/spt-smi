@@ -3,7 +3,47 @@ from typing import Optional, List, Dict
 from enum import Enum
 import base64
 
-class AudioToTextRequest(BaseModel):
+class TextToSpeechRequest(BaseModel):
+    model: str = Field(..., example="xtts")
+    text: str = Field(..., example="Hello, World!")
+    language: str = Field(None, example="en")
+    speaker_id: str = Field(..., example="virginie")
+    keep_alive: Optional[str] = None
+
+class TextToSpeechResponse(BaseModel):
+    url: Optional[str] = Field(None, example="https://www.gstatic.com/webp/gallery/1.jpg")
+    wav: Optional[bytes] = Field(None, example="base64 audio wav file")
+
+    @field_serializer('wav')
+    def encode_file_to_base64(self, wav):
+        if wav is not None:
+            return base64.b64encode(wav).decode('utf-8')
+    
+    @validator('wav', pre=True, always=True)
+    def decode_file_from_base64(cls, v):
+        if v is not None and isinstance(v, str):  # Assuming input will be a base64 string from JSON
+            try:
+                return base64.b64decode(v)
+            except ValueError:
+                raise ValueError("Invalid Base64 encoding")
+        return v  # Pass through if it's already in bytes (not from JSON)
+
+class TextToSpeechSpeakerRequest(BaseModel):
+    id: str = Field(..., example="virginie")
+    sample: bytes = Field(..., example="base64 audio wav file")
+    @field_serializer('sample')
+    def encode_file_to_base64(self, sample):
+        return base64.b64encode(sample).decode('utf-8')
+    
+    @validator('sample', pre=True, always=True)
+    def decode_file_from_base64(cls, v):
+        if isinstance(v, str):  # Assuming input will be a base64 string from JSON
+            try:
+                return base64.b64decode(v)
+            except ValueError:
+                raise ValueError("Invalid Base64 encoding")
+        return v  # Pass through if it's already in bytes (not from JSON)
+class SpeechToTextRequest(BaseModel):
     model: str = Field(..., example="whisper-1")
     file: bytes = Field(
         ...,
@@ -36,6 +76,6 @@ class AudioToTextRequest(BaseModel):
         return v  # Pass through if it's already in bytes (not from JSON)
 
 #
-class AudioToTextResponse(BaseModel):
+class SpeechToTextResponse(BaseModel):
     language: str = Field(..., example="en")
     text: str = Field(..., example="Hello, World!")
