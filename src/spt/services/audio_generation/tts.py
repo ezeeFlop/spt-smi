@@ -32,7 +32,7 @@ class TTSService(Service):
         if self.tts_model is not None:
             logger.info(f"Closing model")
             del self.tts_model
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
     def load_model(self, model_name: str):
         torch.set_num_threads(os.cpu_count())
@@ -84,7 +84,7 @@ class TTSService(Service):
                 bytes=wav_file, name=request.text, extension="wav")
             return TextToSpeechResponse(url=url)
         else:
-            return TextToSpeechResponse(wav=self.encode_audio_common(wav_file))
+            return TextToSpeechResponse(base64=self.encode_audio_common(wav_file))
 
     def add_speakers(self, request: TextToSpeechSpeakerRequest):
         """Compute conditioning inputs from reference audio file."""

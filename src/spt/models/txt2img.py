@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 from typing import List, Optional
 from spt.utils import load_json
@@ -78,7 +78,7 @@ SDXL v0.9: must be one of 1024x1024, 1152x896, 1216x832, 1344x768, 1536x640, 640
 SDXL v1.0: same as SDXL v0.9
 SD v1.6: must be between 320x320 and 1536x1536""")
 
-    @validator('width')
+    @field_validator('width')
     def must_be_multiple_of_64(cls, v):
         if v % 64 != 0:
             raise ValueError('Must be divided by 64')

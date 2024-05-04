@@ -36,13 +36,15 @@ class DiffusionModels(Service):
         self.model_id = None
 
     def __del__(self):
-        pass
+        logger.info("Claiming memory")
+        self.cleanup()
 
     def cleanup(self):
         super().cleanup()
         if self.model_id is not None:
             logger.info(f"Closing model {self.model_id}")
             DiffusionModels.close_diffusion_pipe(self.model_id)
+        torch.cuda.empty_cache()
 
     @classmethod
     def get_model(cls, model_id):

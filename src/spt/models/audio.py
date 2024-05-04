@@ -11,14 +11,14 @@ class TextToSpeechRequest(BaseModel):
 
 class TextToSpeechResponse(BaseModel):
     url: Optional[str] = Field(None, example="https://www.gstatic.com/webp/gallery/1.jpg")
-    wav: Optional[bytes] = Field(None, example="base64 audio wav file")
+    base64: Optional[bytes] = Field(None, example="base64 audio wav file")
 
-    @field_serializer('wav')
-    def encode_file_to_base64(self, wav):
-        if wav is not None:
-            return base64.b64encode(wav).decode('utf-8')
+    @field_serializer('base64')
+    def encode_file_to_base64(self, base64):
+        if base64 is not None:
+            return base64.b64encode(base64).decode('utf-8')
     
-    @validator('wav', pre=True, always=True)
+    @validator('base64', always=True, pre=True)
     def decode_file_from_base64(cls, v):
         if v is not None and isinstance(v, str):  # Assuming input will be a base64 string from JSON
             try:
@@ -34,7 +34,7 @@ class TextToSpeechSpeakerRequest(BaseModel):
     def encode_file_to_base64(self, sample):
         return base64.b64encode(sample).decode('utf-8')
     
-    @validator('sample', pre=True, always=True)
+    @validator('sample', always=True, pre=True)
     def decode_file_from_base64(cls, v):
         if isinstance(v, str):  # Assuming input will be a base64 string from JSON
             try:
@@ -64,13 +64,16 @@ class SpeechToTextRequest(BaseModel):
     @field_serializer('file')
     def encode_file_to_base64(self, file):
         return base64.b64encode(file).decode('utf-8')
-    @validator('file', pre=True, always=True)
+
+    @validator('file', always=True, pre=True)
+    @classmethod
     def decode_file_from_base64(cls, v):
         if isinstance(v, str):  # Assuming input will be a base64 string from JSON
             try:
                 return base64.b64decode(v)
             except ValueError:
                 raise ValueError("Invalid Base64 encoding")
+
         return v  # Pass through if it's already in bytes (not from JSON)
 
 #

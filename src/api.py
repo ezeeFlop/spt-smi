@@ -300,7 +300,7 @@ async def speech_to_text(
     return await submit_job(job, async_key, priority_key)
 
 @app.post("/v1/text-to-speech", response_model=Union[JobResponse, TextToSpeechResponse], tags=["Text To Speech Generation"])
-async def generate_text_to_speech(request_data: TextToSpeechRequest, 
+async def generate_text_to_speech(request_data: TextToSpeechRequest, accept=Header(None),
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
                               keep_alive_key: int = Depends(get_keep_alive_key), 
@@ -317,9 +317,21 @@ async def generate_text_to_speech(request_data: TextToSpeechRequest,
         storage=storage_key,
         keep_alive=keep_alive_key
     )
+    result: Union[JobResponse, TextToSpeechResponse] = await submit_job(job, async_key, priority_key)
 
-    return await submit_job(job, async_key, priority_key)
+    if async_key:
+        return result
 
+
+    if accept == "audio/wav":
+        data = None
+        if result.base64 is not None and result.base64 != "":
+            data = base64.b64decode(result.base64)
+        else:
+            data = requests.get(result.url).content
+        return Response(content=data, media_type="audio/wav")
+
+    return result
 
 async def submit_job(job: Job, async_key: str, priority_key: str):
     if priority_key == JobPriority.high:

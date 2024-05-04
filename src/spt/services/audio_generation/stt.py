@@ -25,7 +25,7 @@ class STTService(Service):
             logger.info(f"Closing model {self.audio_to_text_model}")
             del self.audio_to_text_model.encoder
             del self.audio_to_text_model.decoder
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
     def speech_to_text(self, request: SpeechToTextRequest):
         logger.info(f"Speech To Text model {request.model}")

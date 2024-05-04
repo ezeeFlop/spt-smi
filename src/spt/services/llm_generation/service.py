@@ -61,8 +61,8 @@ class LLMModels(Service):
         logger.info(f"Generate Chat with {request.prompt}")
         result = self.client.embeddings(model=request.model, 
                                                prompt=request.prompt, 
-                                               options=request.options.model_dump(), 
-                                               keep_alive=request.keep_alive)
+                                               options=request.options.model_dump()
+                                               )
         logger.info(f"Result: {result}")
         return EmbeddingsResponse(**result)
 
