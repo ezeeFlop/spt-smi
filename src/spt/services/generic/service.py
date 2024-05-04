@@ -66,7 +66,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             
             if instance_key not in self.instances or self.instances[instance_key][1] < asyncio.get_event_loop().time():
                 class_ = string_to_class(payload['remote_class'])
-                instance = class_()
+                instance = class_(self)
                 self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)
                 if hasattr(instance, 'set_storage'):
                     instance.set_storage(storage)
