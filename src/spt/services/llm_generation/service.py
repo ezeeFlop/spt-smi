@@ -26,7 +26,7 @@ class LLMModels(Service):
             result = self.client.chat(model=request.model, 
                                     messages=[m.model_dump() for m in request.messages], 
                                     options=request.options.model_dump(), 
-                                    keep_alive=request.keep_alive, 
+                                    keep_alive=self.get_keep_alive(), 
                                     stream=request.stream, 
                                     format=request.format)
         except ResponseError as e:
@@ -36,7 +36,7 @@ class LLMModels(Service):
                                         messages=[m.model_dump()
                                                 for m in request.messages],
                                         options=request.options.model_dump(),
-                                        keep_alive=request.keep_alive,
+                                      keep_alive=self.get_keep_alive(),
                                         stream=request.stream,
                                         format=request.format)
 

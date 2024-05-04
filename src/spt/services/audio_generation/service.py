@@ -85,7 +85,19 @@ class TTSService(Service):
             return TextToSpeechResponse(wav=self.encode_audio_common(wav_file))
 
     def add_speakers(self, request: TextToSpeechSpeakerRequest):
-        pass
+        """Compute conditioning inputs from reference audio file."""
+        temp_audio_name = next(tempfile._get_candidate_names())
+        with open(temp_audio_name, "wb") as temp, torch.inference_mode():
+            temp.write(io.BytesIO(wav_file.file.read()).getbuffer())
+            gpt_cond_latent, speaker_embedding = model.get_conditioning_latents(
+                temp_audio_name
+            )
+        return {
+            "gpt_cond_latent": gpt_cond_latent.cpu().squeeze().half().tolist(),
+            "speaker_embedding": speaker_embedding.cpu().squeeze().half().tolist(),
+    }
+
+
 
     def encode_audio_common(self, frame_input, encode_base64=True, sample_rate=24000, sample_width=2, channels=1):
         """Return base64 encoded audio"""

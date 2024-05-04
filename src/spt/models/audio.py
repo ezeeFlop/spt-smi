@@ -8,7 +8,6 @@ class TextToSpeechRequest(BaseModel):
     text: str = Field(..., example="Hello, World!")
     language: str = Field(None, example="en")
     speaker_id: str = Field(..., example="virginie")
-    keep_alive: Optional[str] = None
 
 class TextToSpeechResponse(BaseModel):
     url: Optional[str] = Field(None, example="https://www.gstatic.com/webp/gallery/1.jpg")

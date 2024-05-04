@@ -1,7 +1,7 @@
 import logging
 from spt.services.generic.service import GenericServiceServicer
 from spt.storage import Storage
-
+from spt.models.jobs import JobStorage
 logger = logging.getLogger(__name__)
 
 class Service:
@@ -27,11 +27,11 @@ class Service:
 
     def set_storage(self, storage:str):
         self.storage_type = storage
-        if self.storage_type == "S3" and self.storage is None:
+        if self.storage_type == JobStorage.s3 and self.storage is None:
             self.storage = Storage()
     
     def should_store(self)->bool:
-        if self.storage_type == "S3":
+        if self.storage_type == JobStorage.s3:
             return True
         return False
 
@@ -42,3 +42,6 @@ class Service:
 
     def set_keep_alive(self, keep_alive:int):
         self.keep_alive = keep_alive
+    
+    def get_keep_alive(self):
+        return self.keep_alive

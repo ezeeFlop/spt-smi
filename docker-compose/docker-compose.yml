@@ -169,6 +169,7 @@ services:
       - /data/smi/prod/data:/data
       - /data/smi/prod/temp:/temp
       - /data/smi/prod/cache:/home/spt/.cache
+      - /data/smi/prod/cache:/home/spt/.local/share
 
     command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55003 --type AUDIO_SERVICE"
     deploy:
@@ -245,10 +246,13 @@ services:
     command:  minio server /data --console-address ":19002"
 
   ollama:
+    image: ollama/ollama:latest
     volumes:
       - /usr/share/ollama/.ollama:/root/.ollama
     tty: true
-    image: ollama/ollama:latest
+    environment:
+      - OLLAMA_MAX_LOADED_MODELS=3
+      - OLLAMA_NUM_PARALLEL=3
     ports:
       - 11434:11434
     networks:

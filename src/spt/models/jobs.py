@@ -23,6 +23,10 @@ class JobPriority(str, Enum):
     normal = "NORMAL",
     high = "HIGH"
 
+class JobStorage(str, Enum):
+    local = "LOCAL",
+    s3 = "S3"
+
 class ServiceResponseStatus(str, Enum):
     success = "SUCCESS",
     error = "ERROR",

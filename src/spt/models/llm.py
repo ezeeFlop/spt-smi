@@ -33,7 +33,6 @@ class GenerateRequest(BaseModel):
     context: Optional[str] = None
     stream: Optional[bool] = None
     raw: Optional[bool] = None
-    keep_alive: Optional[str] = None
     
 class GenerateResponse(BaseModel):
     model: str = Field(..., example="text-davinci-003")
@@ -63,7 +62,6 @@ class ChatRequest(BaseModel):
     format: Optional[str] = None
     options: Optional[Options] = None
     stream: Optional[bool] = None
-    keep_alive: Optional[str] = None
 
 class ChatResponse(BaseModel):
     model: str
@@ -84,7 +82,6 @@ class EmbeddingsRequest(BaseModel):
     model: str
     prompt: str
     options: Optional[Options] = None
-    keep_alive: Optional[str] = None
 
 
 class EmbeddingsResponse(BaseModel):

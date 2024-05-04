@@ -1,5 +1,5 @@
 import json
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, ValidationError, field_validator
 from typing import Any, Dict, Type, Optional, List
 import importlib
 from spt.models.jobs import JobStatuses
@@ -11,18 +11,18 @@ class MethodCallRequest(BaseModel):
     response_model_class: Optional[str] = None
     remote_function: Optional[str] = None
     remote_module: Optional[str] = None
-    keep_alive: Optional[int] = None
+    keep_alive: Optional[int] = 5
     storage: Optional[str] = None
     payload: Dict[str, Any]
 
-    @validator('remote_class')
+    @field_validator('remote_class')
     def validate_class_name(cls, v):
         # Validation des classes autorisées
         #if v not in ['User', 'Product']:
         #    raise ValueError("Unauthorized class")
         return v
 
-    @validator('remote_method')
+    @field_validator('remote_method')
     def validate_method_name(cls, v, values, **kwargs):
         # Validation des méthodes autorisées
         #class_name = values.get('class_name')

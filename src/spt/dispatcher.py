@@ -64,7 +64,7 @@ class Dispatcher:
             return result
 
     async def dispatch_job(self, job: Job):
-        logger.info(f"Dispatching job {job.id} {job.type}")
+        logger.info(f"Dispatching job {job.id} {job.type} with payload: {job.payload} keep alive {job.keep_alive} storage {job.storage}")
         try:
             await self.jobs.set_job_status(job, JobStatuses.in_progress)
             response = self.clients[job.type].process_data(job)

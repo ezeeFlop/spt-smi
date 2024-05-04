@@ -4,7 +4,7 @@ from fastapi.responses import StreamingResponse
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from keys import API_KEY
-from spt.models.jobs import JobsTypes, JobStatuses, JobResponse, JobPriority
+from spt.models.jobs import JobsTypes, JobStatuses, JobResponse, JobPriority, JobStorage
 from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
 from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
@@ -88,25 +88,37 @@ async def get_api_key(api_key: str = Security(api_key_header)):
         raise HTTPException(status_code=401, detail="API key invalid")
     return api_key
 
+"""
+    if x-smi-async is set, it tells to the underlying service to use async mode.
+"""
 async_key_header = APIKeyHeader(name="x-smi-async", auto_error=False)
 async def get_async_key(async_key: str = Security(async_key_header)):
     return async_key
 
+"""
+    if x-smi-keep-alive is set, it tells to the underlying service to keep the models in memory for x seconds.
+"""
 keep_alive_key_header = APIKeyHeader(name="x-smi-keep-alive", auto_error=False)
 async def get_keep_alive_key(keep_alive_key: int = Security(keep_alive_key_header)):
     if keep_alive_key is None or keep_alive_key == 0:
         return SERVICE_KEEP_ALIVE
     return keep_alive_key
 
+"""
+    if x-smi-storage is "S3", the underlying service is allowed to access the storage on Minio instance
+"""
 storage_key_header = APIKeyHeader(name="x-smi-storage", auto_error=False)
 async def get_storage_key(storage_key: str = Security(storage_key_header)):
-    if storage_key is not None and storage_key != "S3":
+    if storage_key is not None and storage_key not in [JobStorage.local, JobStorage.s3]:
         raise HTTPException(status_code=401, detail="Storage key invalid value")
     if storage_key is None:
-        storage_key = "local"
+        storage_key = JobStorage.local
     return storage_key
 
-
+"""
+    if x-smi-priority is "high", the underlying service is allowed to use high priority jobs.
+    it bypass the hidden queue and directly execute the job.
+"""
 priority_key_header = APIKeyHeader(name="x-smi-priority", auto_error=False)
 async def get_priority_key(priority_key: str = Security(priority_key_header)):
     if priority_key is None:
