@@ -62,23 +62,24 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             }
 
             instance_key = (payload['remote_class'], storage)
-            logger.info(f"Received request with storage: {storage} keep_alive: {keep_alive} instance_key: {instance_key} remote_class: {payload['remote_class']} remote_function: {payload['remote_function']} remote_method: {payload['remote_method']} payload: {payload['payload']}")
+            logger.info(f"Received request with storage: {storage} keep_alive: {keep_alive} instance_key: {instance_key} remote_class: {payload['remote_class']} remote_function: {payload['remote_function']} remote_method: {payload['remote_method']} reponse_model_class: {payload['response_model_class']} ")
             
-            if instance_key not in self.instances or self.instances[instance_key][1] < asyncio.get_event_loop().time():
-                class_ = string_to_class(payload['remote_class'])
-                instance = class_(self)
-                self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)
-                if hasattr(instance, 'set_storage'):
-                    instance.set_storage(storage)
-                if hasattr(instance, 'set_keep_alive'):
-                    instance.set_keep_alive(keep_alive)
-            else:
-                instance, expiration = self.instances[instance_key]
-                self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)  # Reset expiration
 
             if 'remote_function' in payload and payload['remote_function']:
-                response = await self.execute_function(instance, payload)
+                response = await self.execute_function(payload)
             else:
+                if instance_key not in self.instances or self.instances[instance_key][1] < asyncio.get_event_loop().time():
+                    class_ = string_to_class(payload['remote_class'])
+                    instance = class_(self)
+                    self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)
+                    if hasattr(instance, 'set_storage'):
+                        instance.set_storage(storage)
+                    if hasattr(instance, 'set_keep_alive'):
+                        instance.set_keep_alive(keep_alive)
+                else:
+                    instance, expiration = self.instances[instance_key]
+                    self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)  # Reset expiration
+
                 response = await self.execute_method(instance, payload)
 
             #response_model_class = string_to_class(payload['response_model_class'])
@@ -90,16 +91,17 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             logger.error(f"Error processing data: {traceback.format_exc()}")
             error_response = {
                 'status': JobStatuses.failed,
-                'message': f"Failed to process request due to: {str(e)}"
+                'message': f"Failed to process request due to: {str(e)}",
+                'error': traceback.format_exc()
             }
             return generic_pb2.GenericResponse(json_payload=json.dumps(error_response).encode('utf-8'))
 
-    async def execute_function(self, instance, payload):
+    async def execute_function(self,payload):
         module = string_to_module(payload['remote_module'])
         func = getattr(module, payload['remote_function'])
-        result = func(instance)  # Assume func() takes the instance as an argument
-        request_model_class = string_to_class(payload['request_model_class'])
-        return request_model_class.model_validate(result)
+        result = func()  # Assume func() takes the instance as an argument
+        response_model_class = string_to_class(payload['response_model_class'])
+        return response_model_class.model_validate(result)
 
     async def execute_method(self, instance, payload):
         method = getattr(instance, payload['remote_method'])
@@ -125,7 +127,7 @@ async def serve(max_workers=10, host="localhost", port=50051, type=JobsTypes.unk
     generic_pb2_grpc.add_GenericServiceServicer_to_server(service, server)
     server.add_insecure_port(f"{host}:{port}")
     await server.start()
-    logger.info(f"Service started. Listening on {host}:{port}")
+    logger.info(f"Service started. Listening on {host}:{port} type {type}")
     asyncio.create_task(service.cleanup_expired_instances())  # Start cleanup task for expired instances
     await server.wait_for_termination()
 

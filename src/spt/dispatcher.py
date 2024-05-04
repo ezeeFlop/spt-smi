@@ -1,15 +1,15 @@
 from spt.jobs import Job
 from spt.services.generic.client import GenericClient
 from spt.models.jobs import JobStatuses, JobsTypes, JobResponse
-from spt.models.remotecalls import MethodCallError, class_to_string, string_to_class
+from spt.models.remotecalls import MethodCallError, class_to_string, string_to_class, FunctionCallError
 import logging
 from config import IMAGE_GENERATION, IMAGE_PROCESSING, VIDEO_GENERATION, LLM_GENERATION, AUDIO_GENERATION
 from spt.jobs import Jobs
 from google.protobuf.json_format import MessageToJson
 import traceback
 import json
-from pydantic import BaseModel, ValidationError, validator
-from typing import Type, Any
+from pydantic import BaseModel, ValidationError
+from typing import Type, Any, Union
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class Dispatcher:
             except Exception as e:
                 logger.error(f"Failed to initialize client for job type {job_type}: {e} stack trace: {traceback.format_exc()}")
 
-    async def call_remote_function(self, jobs_type: JobsTypes, remote_module: str, remote_function: str, payload: dict, response_model_class:Type[BaseModel]) -> BaseModel:
+    async def call_remote_function(self, jobs_type: JobsTypes, remote_module: str, remote_function: str, payload: dict, response_model_class:Type[BaseModel]) -> Union[BaseModel|FunctionCallError]:
         logger.info(f"Calling remote function {remote_function} with payload: {payload}")
         try:
             response = self.clients[jobs_type].call_remote_function(
@@ -44,24 +44,29 @@ class Dispatcher:
         except Exception as e:
             logger.error(
                 f"Failed to run remote function {remote_function}: {e} stack trace: {traceback.format_exc()}")
+            return FunctionCallError(message=str(e))
 
-    async def execute_job(self, job: Job):
+    async def execute_job(self, job: Job) -> Union[BaseModel|MethodCallError]:
         logger.info(f"Executing job {job.id} {job.type}")
-        job.payload = json.loads(job.payload)
+        try:
+            job.payload = json.loads(job.payload)
 
-        response = self.clients[job.type].process_data(job)
-        
-        payload = response.json_payload.decode('utf-8')
+            response = self.clients[job.type].process_data(job)
+            
+            payload = response.json_payload.decode('utf-8')
 
-        if "status" in payload:
-            logger.error(f"Job {job.id} failed: {payload}")
-            error = MethodCallError(**json.loads(payload))
-            if error.status == JobStatuses.failed:
-                return JobResponse(id=job.id, status=error.status, type=JobsTypes.unknown, message=error.message)
-        else:
-            response_model_class = string_to_class(job.response_model_class)
-            result = response_model_class.model_validate_json(payload)
-            return result
+            if "status" in payload:
+                logger.error(f"Job {job.id} failed: {payload}")
+                error = MethodCallError(**json.loads(payload))
+                if error.status == JobStatuses.failed:
+                    return JobResponse(id=job.id, status=error.status, type=JobsTypes.unknown, message=error.message)
+            else:
+                response_model_class = string_to_class(job.response_model_class)
+                result = response_model_class.model_validate_json(payload)
+                return result
+        except Exception as e:
+            logger.error(f"Failed to execute job {job.id}: {e} stack trace: {traceback.format_exc()}")
+            return MethodCallError(message=str(e))
 
     async def dispatch_job(self, job: Job):
         logger.info(f"Dispatching job {job.id} {job.type} with payload: {job.payload} keep alive {job.keep_alive} storage {job.storage}")

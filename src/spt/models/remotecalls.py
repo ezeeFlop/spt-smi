@@ -33,8 +33,13 @@ class MethodCallRequest(BaseModel):
         return v
 
 class MethodCallError(BaseModel):
+    error: str
     message: str
     status: JobStatuses
+
+class FunctionCallError(BaseModel):
+    error: str
+    message: str
 
 def string_to_class(class_path: str) -> Type[BaseModel]:
     module_name, class_name = class_path.rsplit('.', 1)

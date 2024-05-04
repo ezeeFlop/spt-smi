@@ -9,7 +9,7 @@ from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList
 from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
 
-from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo
+from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo, FunctionCallError, MethodCallError
 from spt.jobs import Job, Jobs
 import time
 from config import POLLING_TIMEOUT, SERVICE_KEEP_ALIVE
@@ -21,6 +21,7 @@ import logging
 import base64
 from pydantic import BaseModel
 from typing import Type, Any, Optional, Union
+import requests
 
 console = Console()
 
@@ -168,7 +169,11 @@ async def text_to_image(request_data: TextToImageRequest,
         return result
     
     if accept == "image/png" and isinstance(result, ArtifactsList):
-        image_data = base64.b64decode(result.artifacts[0].base64)
+        image_data = None
+        if storage_key == JobStorage.local:
+            image_data = base64.b64decode(result.artifacts[0].base64)
+        elif storage_key == JobStorage.s3:
+            image_data = requests.get(result.artifacts[0].url).content
         return Response(content=image_data, media_type="image/png")
     
     return result
@@ -182,8 +187,12 @@ async def text_to_image(job_id: str, request_data: TextToImageRequest, accept=He
     if status.status == JobStatuses.completed:
         result = await jobs[JobsTypes.image_generation].get_job_result(job)
         if accept == "image/png":
-            # Suppose que le premier artifact contient l'image que tu veux retourner
-            image_data = base64.b64decode(result.artifacts[0].base64)
+            image_data = None
+            if result.artifacts[0].base64 is not None and result.artifacts[0].base64 != "":
+                image_data = base64.b64decode(result.artifacts[0].base64)
+            else:
+                image_data = requests.get(result.artifacts[0].url).content
+
             return Response(content=image_data, media_type="image/png")
         return result
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
@@ -195,7 +204,7 @@ async def list_engines(api_key: str = Depends(get_api_key)):
     return EnginesList(engines=engines)
 
 
-@app.get("/v1/gpu/info", response_model=GPUsInfo)
+@app.get("/v1/gpu/info", response_model=Union[GPUsInfo|FunctionCallError])
 async def gpu_infos(api_key: str = Depends(get_api_key)):
     logger.info(f"Get GPUs Infos")
     return await dispatcher.call_remote_function(JobsTypes.llm_generation, "spt.services.gpu","gpu_infos", {}, GPUsInfo)
@@ -253,35 +262,35 @@ async def generate_embeddings(request_data: EmbeddingsRequest,
     return await submit_job(job, async_key, priority_key)
 
 
-@app.post("/v1/speech-to-text", response_model=Union[JobResponse, SpeechToTextResponse], tags=["Audio To Text Generation"])
+@app.post("/v1/speech-to-text", response_model=Union[JobResponse, SpeechToTextResponse], tags=["Speech To Text Generation"])
 async def speech_to_text(
     file: UploadFile = File(...),
     model: str = Form(...),
     language: Optional[str] = Form(None),
-    temperature: Optional[float] = Form(0),
+    temperature: Optional[float] = Form(0.0),
     prompt: Optional[str] = Form(None),
-    keep_alive: Optional[str] = Form(None),
+    keep_alive: Optional[str] = Form(0),
     api_key: str = Depends(get_api_key),
     async_key: str = Depends(get_async_key),
     keep_alive_key: int = Depends(get_keep_alive_key),
     storage_key: str = Depends(get_storage_key),
     priority_key: str = Depends(get_priority_key)
 ):
+    logger.info(f"Speech to text generation: {model}")
     file_content = await file.read()
     request_data = SpeechToTextRequest(
         model=model,
         file=file_content,
         language=language,
         temperature=temperature,
-        prompt=prompt,
-        keep_alive=keep_alive
+        prompt=prompt
     )
     job = await Jobs.create_job(
         payload=request_data.model_dump_json(),  # Assuming you serialize to JSON if needed
         type=JobsTypes.audio_generation,
         model_id=request_data.model,
         remote_method="speech_to_text",
-        remote_class="spt.services.audio_generation.service.STTService",
+        remote_class="spt.services.audio_generation.stt.STTService",
         request_model_class=SpeechToTextRequest,
         response_model_class=SpeechToTextResponse,
         storage=storage_key,
@@ -290,7 +299,7 @@ async def speech_to_text(
 
     return await submit_job(job, async_key, priority_key)
 
-@app.post("/v1/text-to-speech", response_model=Union[JobResponse, TextToSpeechResponse], tags=["Audio To Text Generation"])
+@app.post("/v1/text-to-speech", response_model=Union[JobResponse, TextToSpeechResponse], tags=["Text To Speech Generation"])
 async def generate_text_to_speech(request_data: TextToSpeechRequest, 
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
@@ -302,7 +311,7 @@ async def generate_text_to_speech(request_data: TextToSpeechRequest,
         type=JobsTypes.audio_generation,
         model_id=request_data.model,
         remote_method="speech_to_text",
-        remote_class="spt.services.audio_generation.service.TTSService",
+        remote_class="spt.services.audio_generation.tts.TTSService",
         request_model_class=TextToSpeechRequest,
         response_model_class=TextToSpeechResponse,
         storage=storage_key,

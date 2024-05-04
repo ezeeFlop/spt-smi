@@ -60,7 +60,6 @@ class SpeechToTextRequest(BaseModel):
         None,
         description="An optional text to guide the model's style or continue a previous audio segment. The [prompt](/docs/guides/speech-to-text/prompting) should match the audio language.\n",
     )
-    keep_alive: Optional[str] = None
 
     @field_serializer('file')
     def encode_file_to_base64(self, file):
