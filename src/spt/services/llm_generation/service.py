@@ -5,7 +5,7 @@ from spt.services.service import Service
 from spt.services.generic.service import GenericServiceServicer
 import inspect
 import logging
-
+import requests
 logger = logging.getLogger(__name__)
 
 class LLMModels(Service):
@@ -14,10 +14,32 @@ class LLMModels(Service):
         super().__init__(servicer=servicer)
         logger.info(f"Connecting to {OLLAMA_URL}")
         self.client = Client(host=OLLAMA_URL, timeout=500)
+        self.models = []
 
     def __del__(self):
-        logger.info("Disconnecting from Ollama")
-        self.client.close()
+        logger.info("Claiming memory")
+        self.cleanup()
+
+    def cleanup(self):
+        super().cleanup()
+        for model in self.models:
+            logger.info(f"Closing model {model}")
+            payload = {
+                "model": model,
+                "keep_alive": 0
+            }
+
+            try:
+                response = requests.post(f"{OLLAMA_URL}/api/generate", json=payload)
+                if response.status_code == 200:
+                    logging.info("Ollama response : %s", response.json())
+                else:
+                    logging.error("Ollama API error: %s - %s",
+                                response.status_code, response.text)
+
+            except requests.exceptions.RequestException as e:
+                logging.exception("Error during HTTP request: %s", e)
+
 
     def generate_chat(self, request: ChatRequest):
         logger.info(f"Generate Chat with {request.messages} model {request.model}")
@@ -29,6 +51,8 @@ class LLMModels(Service):
                                     keep_alive=self.get_keep_alive(), 
                                     stream=request.stream, 
                                     format=request.format)
+            if request.model not in self.models:
+                self.models.append(request.model)
         except ResponseError as e:
             if e.status_code ==  404:
                 self.client.pull(request.model)

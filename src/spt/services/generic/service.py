@@ -61,29 +61,28 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
                 'payload': payload
             }
 
-            instance_key = (payload['remote_class'], storage)
+            instance_key = (payload['remote_class'], payload['remote_method'], storage)
             logger.info(f"Received request with storage: {storage} keep_alive: {keep_alive} instance_key: {instance_key} remote_class: {payload['remote_class']} remote_function: {payload['remote_function']} remote_method: {payload['remote_method']} reponse_model_class: {payload['response_model_class']} ")
             
-
             if 'remote_function' in payload and payload['remote_function']:
                 response = await self.execute_function(payload)
             else:
                 if instance_key not in self.instances or self.instances[instance_key][1] < asyncio.get_event_loop().time():
                     class_ = string_to_class(payload['remote_class'])
                     instance = class_(self)
-                    self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)
+                    self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive * 60)
                     if hasattr(instance, 'set_storage'):
                         instance.set_storage(storage)
                     if hasattr(instance, 'set_keep_alive'):
                         instance.set_keep_alive(keep_alive)
                 else:
                     instance, expiration = self.instances[instance_key]
-                    self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive)  # Reset expiration
+                    self.instances[instance_key] = (instance, asyncio.get_event_loop().time() + keep_alive * 60)  # Reset expiration
+                    if hasattr(instance, 'set_keep_alive'):
+                        instance.set_keep_alive(keep_alive)
 
                 response = await self.execute_method(instance, payload)
 
-            #response_model_class = string_to_class(payload['response_model_class'])
-            #response = response_model_class.model_validate(**result)
             response = response.model_dump_json().encode('utf-8')
             return generic_pb2.GenericResponse(json_payload=response)
 
@@ -113,12 +112,26 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
     async def cleanup_expired_instances(self):
         """ Cleanup expired instances periodically """
         while True:
+            logger.info("  [*] Cleaning up expired instances...")
             current_time = asyncio.get_event_loop().time()
             expired_keys = [key for key, (inst, exp) in self.instances.items() if exp < current_time]
+            logger.info(f"  [*] Found {len(expired_keys)} expired instances:")
             for key in expired_keys:
                 inst, _ = self.instances.pop(key)
+                logger.info(f"  [*] Cleaning up expired instance: {key}")
                 if hasattr(inst, 'cleanup'):
                     inst.cleanup()
+                    del inst
+
+            running_keys = [
+                        key for key, (inst, exp) in self.instances.items() if exp > current_time]
+            logger.info(f"  [*] Found {len(running_keys)} running instances:")
+
+            for key in running_keys:
+                inst, _ = self.instances[key]
+                if hasattr(inst, 'decrease_keep_alive'):
+                    inst.decrease_keep_alive()
+
             await asyncio.sleep(60)  # Cleanup every minute
 
 async def serve(max_workers=10, host="localhost", port=50051, type=JobsTypes.unknown):

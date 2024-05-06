@@ -12,15 +12,7 @@ class Service:
         self.storage:Storage = None
 
     def cleanup(self):
-        logger.info(f"Service Cleanup {self.keep_alive}")
-
-    def should_cleanup(self):
-        self.keep_alive = self.keep_alive - 1
-        logger.info(f"Service Should Cleanup {self.keep_alive}")
-
-        if self.keep_alive <= 0:
-            return True
-        return False
+        logger.info(f"Service Cleanup {self.keep_alive} minutes left")
 
     def chunked_request(self, request):
         logger.info(f"Chunked request: {request}")
@@ -43,5 +35,9 @@ class Service:
     def set_keep_alive(self, keep_alive:int):
         self.keep_alive = keep_alive
     
+    def decrease_keep_alive(self):
+        self.keep_alive -= 1
+        logger.info(f"Keep alive decreased to {self.keep_alive}")
+
     def get_keep_alive(self):
         return self.keep_alive

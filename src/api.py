@@ -8,18 +8,15 @@ from spt.models.jobs import JobsTypes, JobStatuses, JobResponse, JobPriority, Jo
 from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
 from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
-
 from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo, FunctionCallError, MethodCallError
 from spt.jobs import Job, Jobs
 import time
 from config import POLLING_TIMEOUT, SERVICE_KEEP_ALIVE
-from typing import Union
 import asyncio
 from rich.logging import RichHandler
 from rich.console import Console
 import logging
 import base64
-from pydantic import BaseModel
 from typing import Type, Any, Optional, Union
 import requests
 
@@ -68,11 +65,15 @@ app = FastAPI(
                 inferences from several models at the same time using a hidden queue mecanism.
 
                 This API can be deployed on a docker container for your own use.
-
+                It does include the following stacks : 
+                    - RabbitMQ for message broker
+                    - Redis for caching
+                    - FastAPI for the API
+                    - Minio for the storage
                 """,
     contact={
         "name": "Sponge Theory",
-        "url": "https://sponge-theory.io",
+        "url": "https://sponge-theory.ai",
         "email": "contact@sponge-theory.io",
     })
 
@@ -103,7 +104,7 @@ keep_alive_key_header = APIKeyHeader(name="x-smi-keep-alive", auto_error=False)
 async def get_keep_alive_key(keep_alive_key: int = Security(keep_alive_key_header)):
     if keep_alive_key is None or keep_alive_key == 0:
         return SERVICE_KEEP_ALIVE
-    return keep_alive_key
+    return int(keep_alive_key)
 
 """
     if x-smi-storage is "S3", the underlying service is allowed to access the storage on Minio instance
@@ -142,7 +143,7 @@ async def log_requests(request: Request, call_next):
         f"Requête: {request.method} {request.url} - Temps de traitement: {process_time} secondes")
     return response
 
-@app.post("/v1/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Image Generation"])
+@app.post("/v1/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Text To Image Generation"])
 async def text_to_image(request_data: TextToImageRequest, 
                        accept=Header(None), 
                        api_key: str = Depends(get_api_key), 
@@ -178,7 +179,8 @@ async def text_to_image(request_data: TextToImageRequest,
     
     return result
 
-@app.get("/v1/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList])
+
+@app.get("/v1/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList], tags=["Text To Image Generation"])
 async def text_to_image(job_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key)):
     logger.info(f"Text To Image job retreival: {job_id}")
     job = Job(id=job_id, type=JobsTypes.image_generation, response_model_class=class_to_string(ArtifactsList))
@@ -211,8 +213,9 @@ async def gpu_infos(api_key: str = Depends(get_api_key)):
 
 # New endpoints calling the OLLAMA API
 
-@app.post("/v1/chat", response_model=Union[ChatResponse, JobResponse], tags=["Chat Generation"])
-async def generate_chat(request_data: ChatRequest, 
+
+@app.post("/v1/text-to-text", response_model=Union[ChatResponse, JobResponse], tags=["Text To Text Generation"])
+async def text_to_text(request_data: ChatRequest,
                         api_key: str = Depends(get_api_key), 
                         async_key: str = Depends(get_async_key), 
                         keep_alive_key: int = Depends(get_keep_alive_key), 
@@ -231,8 +234,28 @@ async def generate_chat(request_data: ChatRequest,
     return await submit_job(job, async_key, priority_key)
 
 
-@app.get("/v1/chat/{job_id}", response_model=Union[JobResponse, ChatResponse])
-async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends(get_api_key)):
+@app.post("/v1/image-to-text", response_model=Union[ChatResponse, JobResponse], tags=["Image To Text Generation"])
+async def image_to_text(request_data: ChatRequest,
+                       api_key: str = Depends(get_api_key),
+                       async_key: str = Depends(get_async_key),
+                       keep_alive_key: int = Depends(get_keep_alive_key),
+                       storage_key: str = Depends(get_storage_key), priority_key: str = Depends(get_priority_key)):
+
+    job = await Jobs.create_job(payload=request_data.model_dump_json(),
+                                type=JobsTypes.llm_generation,
+                                model_id=request_data.model,
+                                remote_method="generate_chat",
+                                remote_class="spt.services.llm_generation.service.LLMModels",
+                                request_model_class=ChatRequest,
+                                response_model_class=ChatResponse,
+                                storage=storage_key,
+                                keep_alive=keep_alive_key)
+
+    return await submit_job(job, async_key, priority_key)
+
+
+@app.get("/v1/text-to-text/{job_id}", response_model=Union[JobResponse, ChatResponse], tags=["Text To Text Generation"])
+async def text_to_text(job_id: str, accept=Header(None), api_key: str = Depends(get_api_key)):
     logger.info(f"LLM Chat generation job retreival: {job_id}")
     job = Job(id=job_id, type=JobsTypes.llm_generation,
               response_model_class=class_to_string(ChatResponse))
@@ -244,8 +267,8 @@ async def generate_chat(job_id: str, accept=Header(None), api_key: str = Depends
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
 
 
-@app.post("/v1/embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Embeddings Generation"])
-async def generate_embeddings(request_data: EmbeddingsRequest, 
+@app.post("/v1/text-to-embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Text ToEmbeddings Generation"])
+async def text_to_embeddings(request_data: EmbeddingsRequest, 
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
                               keep_alive_key: int = Depends(get_keep_alive_key), 
@@ -300,7 +323,7 @@ async def speech_to_text(
     return await submit_job(job, async_key, priority_key)
 
 @app.post("/v1/text-to-speech", response_model=Union[JobResponse, TextToSpeechResponse], tags=["Text To Speech Generation"])
-async def generate_text_to_speech(request_data: TextToSpeechRequest, accept=Header(None),
+async def text_to_speech(request_data: TextToSpeechRequest, accept=Header(None),
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
                               keep_alive_key: int = Depends(get_keep_alive_key), 
@@ -321,7 +344,6 @@ async def generate_text_to_speech(request_data: TextToSpeechRequest, accept=Head
 
     if async_key:
         return result
-
 
     if accept == "audio/wav":
         data = None

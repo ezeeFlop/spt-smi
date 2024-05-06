@@ -44,7 +44,7 @@ class Job:
                  remote_method: Optional[str] = None,
                  request_model_class: Optional[str] = None, 
                  response_model_class: Optional[str] = None,
-                 storage: Optional[str] = None,
+                 storage: Optional[str] = "local",
                  keep_alive: Optional[int] = SERVICE_KEEP_ALIVE) -> None:
         self.id = uuid.uuid4().hex if id is None else id
         self.payload = payload
@@ -183,25 +183,42 @@ class Jobs:
                             job_keep_alive=job.keep_alive)
         )
 
+    def message_to_job(self, channel, method, properties, body):
+        body = self.consumer.decode_message(body=body)
+        logger.debug(
+            f"  [**] JOB ID {properties.headers['job_id']} TYPE {properties.headers['job_type']} MODEL ID {properties.headers['job_model_id']} CLASS {properties.headers['job_remote_class']} METHOD {properties.headers['job_remote_method']} Response Model Class {properties.headers['job_response_model_class']} Request Model Class {properties.headers['job_request_model_class']}")
+
+        return Job(json.loads(body), type=JobsTypes(properties.headers['job_type']),
+                id=properties.headers['job_id'],
+                model_id=properties.headers['job_model_id'],
+                remote_class=properties.headers['job_remote_class'],
+                remote_method=properties.headers['job_remote_method'],
+                response_model_class=properties.headers['job_response_model_class'],
+                request_model_class=properties.headers['job_request_model_class'],
+                keep_alive=properties.headers['job_keep_alive'],
+                storage=properties.headers['job_storage'])
+
+    @sync
+    async def can_run_job(self, channel, method, properties, body) -> bool:
+        global dispatcher
+
+        job = self.message_to_job(channel, method, properties, body)
+    
+        await self.set_job_status(job, JobStatuses.in_progress)
+
+        if dispatcher is None:
+            from spt.dispatcher import Dispatcher
+            dispatcher = Dispatcher()
+
+        return await dispatcher.allow_run_job(job)
+
     @sync
     async def receive_job(self, channel, method, properties, body):
         global dispatcher
-
-        body = self.consumer.decode_message(body=body)
         
         logger.info(f"---> Receive Job {channel}, {method} {properties}")
-        logger.info(
-            f"----> JOB ID {properties.headers['job_id']} TYPE {properties.headers['job_type']} MODEL ID {properties.headers['job_model_id']} CLASS {properties.headers['job_remote_class']} METHOD {properties.headers['job_remote_method']} Response Model Class {properties.headers['job_response_model_class']} Request Model Class {properties.headers['job_request_model_class']}")
         
-        job = Job(json.loads(body), type=JobsTypes(properties.headers['job_type']), 
-                  id=properties.headers['job_id'], 
-                  model_id=properties.headers['job_model_id'], 
-                  remote_class=properties.headers['job_remote_class'], 
-                  remote_method=properties.headers['job_remote_method'],
-                  response_model_class=properties.headers['job_response_model_class'],
-                  request_model_class=properties.headers['job_request_model_class'],
-                  keep_alive=properties.headers['job_keep_alive'],
-                  storage=properties.headers['job_storage'])
+        job = self.message_to_job(channel, method, properties, body)
         
         await self.set_job_status(job, JobStatuses.in_progress)
         
@@ -212,11 +229,7 @@ class Jobs:
         await dispatcher.dispatch_job(job)
 
     def start_jobs_receiver_thread(self):
-        """
-        Démarre le thread de réception des jobs et initialise le membre thread.
-        Cette méthode crée également une nouvelle boucle d'événements pour asyncio
-        dans le nouveau thread, permettant d'exécuter des tâches asynchrones.
-        """
+
         if self.thread is None or not self.thread.is_alive():
             # Création et démarrage du nouveau thread
             self.thread = threading.Thread(
@@ -242,23 +255,6 @@ class Jobs:
         finally:
             loop.close()
 
-    def start_jobs_receiver_threadv1(self):
-        logger.info(f"Starting jobs  thread for queue {self.routing_key}")
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        try:
-            asyncio.ensure_future(self.start_jobs_receiver())
-            loop.run_forever()
-        except Exception as e:
-            logger.error(
-                f"Failed to start jobs receiver for queue {self.routing_key}: {e}")
-        finally:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
-            self.stop()
-
     def start_jobs_receiver(self):
         logger.info(f"Starting jobs receiver for queue {self.routing_key}")
         self.consumer = QueueMessageReceiver()
@@ -267,8 +263,10 @@ class Jobs:
         self.consumer.bind_queue(
             exchange_name="spt", queue_name="smi-requests", routing_key=self.routing_key
         )
-        self.consumer.consume_messages(
-            queue="smi-requests", callback=self.receive_job)
+        #self.consumer.consume_messages(
+        #    queue="smi-requests", callback=self.receive_job)
+        self.consumer.consume_and_check_messages(
+            queue="smi-requests", process_callback=self.receive_job, auto_ack=False, condition_callback=self.can_run_job)
     
     def stop(self):
         if self.publisher is not None:
@@ -312,7 +310,4 @@ if __name__ == "__main__":
         monitor_thread = executor.submit(monitor_and_restart_jobs, jobs, executor)
         logger.info("Récepteurs de jobs démarrés et surveillance active.")
 
-
-        # Attente (optionnelle) pour la démonstration; dans la pratique, tu pourrais vouloir
-        # avoir une condition d'arrêt ou intégrer ceci dans ton système de manière différente.
         monitor_thread.result()

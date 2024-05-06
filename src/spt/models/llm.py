@@ -61,7 +61,7 @@ class ChatRequest(BaseModel):
     messages: List[ChatMessage]
     format: Optional[str] = None
     options: Optional[Options] = None
-    stream: Optional[bool] = None
+    stream: Optional[bool] = False
 
 class ChatResponse(BaseModel):
     model: str

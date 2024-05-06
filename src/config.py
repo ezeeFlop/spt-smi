@@ -20,7 +20,7 @@ RABBITMQ_PASSWORD = os.environ['RABBITMQ_DEFAULT_PASS'] if os.environ.get(
 REDIS_HOST = os.environ['REDIS_HOST'] if os.environ.get('REDIS_HOST') else "localhost"
 REDIS_PORT = os.environ['REDIS_PORT'] if os.environ.get(
     'REDIS_PORT') else 6379
-
+QUEUE_RETRY_DELAY = 5 # in seconds
 # Services ports
 
 IMAGE_GENERATION = os.environ['IMAGE_GENERATION'] if os.environ.get(
