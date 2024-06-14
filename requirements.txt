@@ -56,3 +56,4 @@ pydantic
 faster-whisper
 optimum
 zmq
+wsproto
