@@ -27,6 +27,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa \
 # Étape 4: Installation de Python3 et des dépendances
 RUN apt-get update && apt-get install -y python3-venv python3-dev \
     ffmpeg  \
+    tesseract-ocr \
     python3-setuptools \
     && apt-get clean 
 

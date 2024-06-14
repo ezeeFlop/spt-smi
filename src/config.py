@@ -29,8 +29,6 @@ LLM_GENERATION = os.environ['LLM_GENERATION'] if os.environ.get(
     'LLM_GENERATION') else "localhost:55002"
 AUDIO_GENERATION = os.environ['AUDIO_GENERATION'] if os.environ.get(
     'AUDIO_GENERATION') else "localhost:55003"
-IMAGE_PROCESSING = os.environ['IMAGE_PROCESSING'] if os.environ.get(
-    'IMAGE_PROCESSING') else "localhost:55004"
 VIDEO_GENERATION = os.environ['VIDEO_GENERATION'] if os.environ.get(
     'VIDEO_GENERATION') else "localhost:55005"
 

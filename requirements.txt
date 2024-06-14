@@ -47,4 +47,12 @@ pydantic
 #TTS @ git+https://github.com/coqui-ai/TTS@fa28f99f1508b5b5366539b2149963edcb80ba62
 TTS==0.22.0
 spacy==3.7.4
-aioredis
+pymilvus
+sentence-transformers 
+pymupdf 
+pytesseract 
+pillow 
+pydantic
+faster-whisper
+optimum
+zmq

@@ -1,14 +1,18 @@
 from fastapi import FastAPI, HTTPException, Depends, Security, Request, Response, Header, UploadFile, Form, File
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import StreamingResponse
+from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from keys import API_KEY
 from spt.models.jobs import JobsTypes, JobStatuses, JobResponse, JobPriority, JobStorage
-from spt.models.txt2img import TextToImageRequest, EnginesList, ArtifactsList 
-from spt.models.llm import GenerateRequest, GenerateResponse, ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
+from spt.models.image import TextToImageRequest, TextToImageResponse 
+from spt.models.workers import WorkerConfigs
+from spt.models.llm import ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
 from spt.models.remotecalls import class_to_string, string_to_class, GPUsInfo, FunctionCallError, MethodCallError
+from spt.models.workers import WorkerStreamManageRequest, WorkerStreamManageResponse, WorkerStreamType
 from spt.jobs import Job, Jobs
 import time
 from config import POLLING_TIMEOUT, SERVICE_KEEP_ALIVE
@@ -19,6 +23,9 @@ import logging
 import base64
 from typing import Type, Any, Optional, Union
 import requests
+import zmq
+import traceback
+from zmq.asyncio import Context, Poller
 
 console = Console()
 
@@ -34,6 +41,7 @@ logger = logging.getLogger("API")
 
 jobs = None
 dispatcher = None
+workers_configurations = WorkerConfigs.get_configs()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,7 +62,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="spt-smi",
-    version="0.0.1",
+    version="0.0.5",
     description="""
                 spt-smi API 🚀
 
@@ -70,6 +78,9 @@ app = FastAPI(
                     - Redis for caching
                     - FastAPI for the API
                     - Minio for the storage
+                It support dymanic scaling and load balancing, GRPC distrubuted remote services with workers
+                for each IA models.
+                Websocket streaming is also supported (ie. STT)
                 """,
     contact={
         "name": "Sponge Theory",
@@ -129,6 +140,14 @@ async def get_priority_key(priority_key: str = Security(priority_key_header)):
         raise HTTPException(status_code=401, detail="Priority key invalid value")
     return priority_key
 
+async def validate_worker_exists(request: Request):
+    data = await request.json()
+    worker_id = data.get("worker_id")
+    if worker_id not in workers_configurations.workers_configs:
+        raise HTTPException(
+            status_code=404, detail=f"Worker configuration for model {worker_id} not found")
+    return worker_id
+
 """Logs requests to the logger.
 
 This middleware logs each request, the response time, 
@@ -140,27 +159,26 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     process_time = time.time() - start_time
     logger.info(
-        f"Requête: {request.method} {request.url} - Temps de traitement: {process_time} secondes")
+        f"Request: {request.method} {request.url} - process time: {process_time} seconds")
     return response
 
-@app.post("/v1/text-to-image", response_model=Union[JobResponse, ArtifactsList], status_code=201, tags=["Text To Image Generation"])
+@app.post("/v1/text-to-image", response_model=Union[JobResponse, TextToImageResponse ], status_code=201, tags=["Text To Image Generation"])
 async def text_to_image(request_data: TextToImageRequest, 
                        accept=Header(None), 
+                        worker_id: str = Depends(validate_worker_exists),
                        api_key: str = Depends(get_api_key), 
                        async_key: str = Depends(get_async_key), 
                        keep_alive_key: int = Depends(get_keep_alive_key), 
                        storage_key: str = Depends(get_storage_key),
                        priority_key: str = Depends(get_priority_key)):
     
-    logger.info(f"Text To Image with engine_id: {request_data.model}")
+    logger.info(f"Text To Image with worker_id: {worker_id}")
 
     job = await Jobs.create_job(payload=request_data.model_dump_json(), 
                         type=JobsTypes.image_generation, 
-                        model_id=request_data.model,
-                        remote_method="generate_images", 
-                        remote_class="spt.services.image_generation.service.DiffusionModels", 
-                        request_model_class=TextToImageRequest, 
-                        response_model_class=ArtifactsList,
+                                worker_id=worker_id,
+                        #request_model_class=TextToImageRequest, 
+                        #response_model_class=TextToImageResponse,
                         storage=storage_key,
                         keep_alive=keep_alive_key)
     
@@ -169,7 +187,7 @@ async def text_to_image(request_data: TextToImageRequest,
     if async_key:
         return result
     
-    if accept == "image/png" and isinstance(result, ArtifactsList):
+    if accept == "image/png" and isinstance(result, TextToImageResponse):
         image_data = None
         if storage_key == JobStorage.local:
             image_data = base64.b64decode(result.artifacts[0].base64)
@@ -180,10 +198,11 @@ async def text_to_image(request_data: TextToImageRequest,
     return result
 
 
-@app.get("/v1/text-to-image/{job_id}", response_model=Union[JobResponse, ArtifactsList], tags=["Text To Image Generation"])
-async def text_to_image(job_id: str, request_data: TextToImageRequest, accept=Header(None), api_key: str = Depends(get_api_key)):
-    logger.info(f"Text To Image job retreival: {job_id}")
-    job = Job(id=job_id, type=JobsTypes.image_generation, response_model_class=class_to_string(ArtifactsList))
+@app.get("/v1/text-to-image/{job_id}", response_model=Union[JobResponse, TextToImageResponse], tags=["Text To Image Generation"])
+async def text_to_image(job_id: str, request_data: TextToImageRequest, 
+                        accept=Header(None), api_key: str = Depends(get_api_key)):
+    logger.info(f"Text To Image job retrieval: {job_id}")
+    job = Job(id=job_id, type=JobsTypes.image_generation, response_model_class=class_to_string(TextToImageResponse))
     status = await jobs[JobsTypes.image_generation].get_job_status(job)
 
     if status.status == JobStatuses.completed:
@@ -199,12 +218,11 @@ async def text_to_image(job_id: str, request_data: TextToImageRequest, accept=He
         return result
     return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
 
-@app.get("/v1/engines/list", response_model=EnginesList)
-async def list_engines(api_key: str = Depends(get_api_key)):
-    logger.info(f"List engines")
-    engines = EnginesList.get_engines()
-    return EnginesList(engines=engines)
 
+@app.get("/v1/workers/list", response_model=WorkerConfigs)
+async def list_worker_configurations(api_key: str = Depends(get_api_key)):
+    logger.info(f"List available workers configurations")
+    return workers_configurations
 
 @app.get("/v1/gpu/info", response_model=Union[GPUsInfo|FunctionCallError])
 async def gpu_infos(api_key: str = Depends(get_api_key)):
@@ -213,9 +231,9 @@ async def gpu_infos(api_key: str = Depends(get_api_key)):
 
 # New endpoints calling the OLLAMA API
 
-
 @app.post("/v1/text-to-text", response_model=Union[ChatResponse, JobResponse], tags=["Text To Text Generation"])
 async def text_to_text(request_data: ChatRequest,
+                       worker_id: str = Depends(validate_worker_exists),
                         api_key: str = Depends(get_api_key), 
                         async_key: str = Depends(get_async_key), 
                         keep_alive_key: int = Depends(get_keep_alive_key), 
@@ -223,9 +241,7 @@ async def text_to_text(request_data: ChatRequest,
     
     job = await Jobs.create_job(payload=request_data.model_dump_json(), 
                         type=JobsTypes.llm_generation, 
-                        model_id=request_data.model,
-                        remote_method="generate_chat",
-                        remote_class="spt.services.llm_generation.service.LLMModels",
+                                worker_id=worker_id,
                         request_model_class=ChatRequest,
                         response_model_class=ChatResponse,
                         storage=storage_key,
@@ -236,6 +252,7 @@ async def text_to_text(request_data: ChatRequest,
 
 @app.post("/v1/image-to-text", response_model=Union[ChatResponse, JobResponse], tags=["Image To Text Generation"])
 async def image_to_text(request_data: ChatRequest,
+                        worker_id: str = Depends(validate_worker_exists),
                        api_key: str = Depends(get_api_key),
                        async_key: str = Depends(get_async_key),
                        keep_alive_key: int = Depends(get_keep_alive_key),
@@ -243,9 +260,7 @@ async def image_to_text(request_data: ChatRequest,
 
     job = await Jobs.create_job(payload=request_data.model_dump_json(),
                                 type=JobsTypes.llm_generation,
-                                model_id=request_data.model,
-                                remote_method="generate_chat",
-                                remote_class="spt.services.llm_generation.service.LLMModels",
+                                worker_id=worker_id,
                                 request_model_class=ChatRequest,
                                 response_model_class=ChatResponse,
                                 storage=storage_key,
@@ -256,7 +271,7 @@ async def image_to_text(request_data: ChatRequest,
 
 @app.get("/v1/text-to-text/{job_id}", response_model=Union[JobResponse, ChatResponse], tags=["Text To Text Generation"])
 async def text_to_text(job_id: str, accept=Header(None), api_key: str = Depends(get_api_key)):
-    logger.info(f"LLM Chat generation job retreival: {job_id}")
+    logger.info(f"LLM Chat generation job retrieval: {job_id}")
     job = Job(id=job_id, type=JobsTypes.llm_generation,
               response_model_class=class_to_string(ChatResponse))
     status = await jobs[JobsTypes.llm_generation].get_job_status(job)
@@ -269,14 +284,13 @@ async def text_to_text(job_id: str, accept=Header(None), api_key: str = Depends(
 
 @app.post("/v1/text-to-embeddings", response_model=Union[JobResponse, EmbeddingsResponse], tags=["Text ToEmbeddings Generation"])
 async def text_to_embeddings(request_data: EmbeddingsRequest, 
+                             worker_id: str = Depends(validate_worker_exists),
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
                               keep_alive_key: int = Depends(get_keep_alive_key), 
                               storage_key: str = Depends(get_storage_key), priority_key: str = Depends(get_priority_key)):
     job = await Jobs.create_job(payload=request_data.model_dump_json(), type=JobsTypes.llm_generation, 
-                        model_id=request_data.model, 
-                        remote_method="generate_embeddings", 
-                        remote_class="spt.services.llm_generation.service.LLMModels", 
+                                worker_id=worker_id,
                         request_model_class=EmbeddingsRequest, 
                         response_model_class=EmbeddingsResponse,
                         storage=storage_key,
@@ -284,11 +298,157 @@ async def text_to_embeddings(request_data: EmbeddingsRequest,
 
     return await submit_job(job, async_key, priority_key)
 
+@app.websocket("/ws/v1/speech-to-text")
+async def websocket_stream(websocket: WebSocket, 
+                           worker_id: str, timeout: int = 30):
+  
+    api_key = websocket.headers.get("x-smi-key")
+    logger.info(
+        f"WebSocket connection attempt with API key: {api_key} and worker_id: {worker_id}")
+
+    if api_key != API_KEY:
+        await websocket.close(code=1008, reason="API key invalid")
+        return
+
+    if worker_id not in workers_configurations.workers_configs:
+        await websocket.close(code=404, reason=f"Worker configuration for model {worker_id} not found")
+        return
+
+    logger.info(f"Websocket connection with worker_id: {worker_id}")
+
+    request = WorkerStreamManageRequest(action="start", worker_id=worker_id,
+                                        intype=WorkerStreamType.bytes, 
+                                        outtype=WorkerStreamType.json, 
+                                        timeout=timeout)
+    
+    job = await Jobs.create_job(payload=request.model_dump_json(),
+                                type=JobsTypes.audio_generation,
+                                worker_id=worker_id,
+                                request_model_class=WorkerStreamManageRequest,
+                                response_model_class=WorkerStreamManageResponse,
+                                remote_method="stream",
+                                storage=JobStorage.local,
+                                keep_alive=SERVICE_KEEP_ALIVE)
+
+    response: WorkerStreamManageResponse = await submit_job(job, 'False', JobPriority.high)
+
+    await stream(websocket, request=request, response=response)
+
+
+async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, response: WorkerStreamManageResponse):
+    await websocket.accept()
+
+    logger.info(f"Websocket {response}")
+
+    context = Context()
+
+    sender = context.socket(zmq.PUSH)
+    sender.bind(f"tcp://{response.ip_address}:{response.inport}")
+
+    receiver = context.socket(zmq.PULL)
+    receiver.connect(f"tcp://{response.ip_address}:{response.outport}")
+
+    poller = Poller()
+    poller.register(receiver, zmq.POLLIN)
+
+    input_funcs = {
+        WorkerStreamType.text: receiver.recv_string,
+        WorkerStreamType.bytes: receiver.recv,
+        WorkerStreamType.json: receiver.recv_json
+    }
+    output_funcs = {
+        WorkerStreamType.text: sender.send_string,
+        WorkerStreamType.bytes: sender.send,
+        WorkerStreamType.json: sender.send_json
+    }
+
+    output_ws_funcs = {
+        WorkerStreamType.text: websocket.send_text,
+        WorkerStreamType.bytes: websocket.send_bytes,
+        WorkerStreamType.json: websocket.send_json
+    }
+    input_ws_funcs = {
+        WorkerStreamType.text: websocket.receive_text,
+        WorkerStreamType.bytes: websocket.receive_bytes,
+        WorkerStreamType.json: websocket.receive_json
+    }
+
+    input_func = input_funcs[request.intype]
+    output_func = output_funcs[request.outtype]
+
+    input_ws_func = input_ws_funcs[request.intype]
+    output_ws_func = output_ws_funcs[request.outtype]
+
+    async def receive_from_ws():
+        try:
+            while True:
+                try:
+                    data = await asyncio.wait_for(input_ws_func(), timeout=request.timeout)
+                    logger.info(f"Received data from WebSocket: {data}")
+                    await output_func(data)
+                except asyncio.TimeoutError:
+                    logger.info("WebSocket timed out due to inactivity")
+                    break
+        except WebSocketDisconnect as e:
+            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
+        except asyncio.CancelledError:
+            logger.info("Task receive_from_ws cancelled")
+        except Exception as e:
+            logger.error(
+                f"Error in receive_from_ws: {e} {traceback.format_exc()}")
+        finally:
+            try:
+                receiver.close()
+                sender.close()
+                context.term()
+                if websocket.state == WebSocketState.CONNECTED:
+                    await websocket.close()
+            except Exception as e:
+                logger.error(
+                    f"Error during cleanup in receive_from_ws: {e} {traceback.format_exc()}")
+
+    async def send_to_ws():
+        try:
+            while True:
+                events = await poller.poll(timeout=1000)
+                if receiver in dict(events):
+                    message = await input_func()
+                    logger.info(f"Received message from ZeroMQ: {message}")
+                    await output_ws_func(message)
+        except WebSocketDisconnect as e:
+            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
+        except asyncio.CancelledError:
+            logger.info("Task send_to_ws cancelled")
+        except Exception as e:
+            logger.error(f"Error in send_to_ws: {e} {traceback.format_exc()}")
+        finally:
+            try:
+                receiver.close()
+                sender.close()
+                context.term()
+                if websocket.state == WebSocketState.CONNECTED:
+                    await websocket.close()
+            except Exception as e:
+                logger.error(
+                    f"Error during cleanup in send_to_ws: {e} {traceback.format_exc()}")
+
+    receive_task = asyncio.create_task(
+        receive_from_ws(), name="receive_from_ws")
+    send_task = asyncio.create_task(send_to_ws(), name="send_to_ws")
+
+    try:
+        await asyncio.gather(send_task, receive_task)
+    except asyncio.CancelledError:
+        logger.info("Main gather task cancelled")
+    finally:
+        receive_task.cancel()
+        send_task.cancel()
+        await asyncio.gather(receive_task, send_task, return_exceptions=True)
 
 @app.post("/v1/speech-to-text", response_model=Union[JobResponse, SpeechToTextResponse], tags=["Speech To Text Generation"])
 async def speech_to_text(
     file: UploadFile = File(...),
-    model: str = Form(...),
+    worker_id: str = Form(...),
     language: Optional[str] = Form(None),
     temperature: Optional[float] = Form(0.0),
     prompt: Optional[str] = Form(None),
@@ -299,10 +459,10 @@ async def speech_to_text(
     storage_key: str = Depends(get_storage_key),
     priority_key: str = Depends(get_priority_key)
 ):
-    logger.info(f"Speech to text generation: {model}")
+    logger.info(f"Speech to text generation: {worker_id}")
     file_content = await file.read()
     request_data = SpeechToTextRequest(
-        model=model,
+        worker_id=worker_id,
         file=file_content,
         language=language,
         temperature=temperature,
@@ -311,9 +471,7 @@ async def speech_to_text(
     job = await Jobs.create_job(
         payload=request_data.model_dump_json(),  # Assuming you serialize to JSON if needed
         type=JobsTypes.audio_generation,
-        model_id=request_data.model,
-        remote_method="speech_to_text",
-        remote_class="spt.services.audio_generation.stt.STTService",
+        worker_id=worker_id,
         request_model_class=SpeechToTextRequest,
         response_model_class=SpeechToTextResponse,
         storage=storage_key,
@@ -324,6 +482,7 @@ async def speech_to_text(
 
 @app.post("/v1/text-to-speech", response_model=Union[JobResponse, TextToSpeechResponse], tags=["Text To Speech Generation"])
 async def text_to_speech(request_data: TextToSpeechRequest, accept=Header(None),
+                         worker_id: str = Depends(validate_worker_exists),
                               api_key: str = Depends(get_api_key), 
                               async_key: str = Depends(get_async_key), 
                               keep_alive_key: int = Depends(get_keep_alive_key), 
@@ -332,9 +491,7 @@ async def text_to_speech(request_data: TextToSpeechRequest, accept=Header(None),
     job = await Jobs.create_job(
         payload=request_data.model_dump_json(),  # Assuming you serialize to JSON if needed
         type=JobsTypes.audio_generation,
-        model_id=request_data.model,
-        remote_method="speech_to_text",
-        remote_class="spt.services.audio_generation.tts.TTSService",
+        worker_id=worker_id,
         request_model_class=TextToSpeechRequest,
         response_model_class=TextToSpeechResponse,
         storage=storage_key,

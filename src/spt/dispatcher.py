@@ -1,9 +1,9 @@
 from spt.jobs import Job
-from spt.services.generic.client import GenericClient
+from spt.services.client import GenericClient
 from spt.models.jobs import JobStatuses, JobsTypes, JobResponse
 from spt.models.remotecalls import MethodCallError, class_to_string, string_to_class, FunctionCallError
 import logging
-from config import IMAGE_GENERATION, IMAGE_PROCESSING, VIDEO_GENERATION, LLM_GENERATION, AUDIO_GENERATION
+from config import IMAGE_GENERATION, VIDEO_GENERATION, LLM_GENERATION, AUDIO_GENERATION
 from spt.jobs import Jobs
 from google.protobuf.json_format import MessageToJson
 import traceback
@@ -24,10 +24,9 @@ class Dispatcher:
             JobsTypes.llm_generation: LLM_GENERATION,
             JobsTypes.audio_generation: AUDIO_GENERATION,
             JobsTypes.video_generation: VIDEO_GENERATION,
-            JobsTypes.image_processing: IMAGE_PROCESSING
         }
 
-        for job_type in [JobsTypes.image_generation, JobsTypes.llm_generation, JobsTypes.audio_generation, JobsTypes.video_generation, JobsTypes.image_processing]:
+        for job_type in [JobsTypes.image_generation, JobsTypes.llm_generation, JobsTypes.audio_generation, JobsTypes.video_generation]:
             logger.info(f"Initializing client for job type {job_type}")
             try:
                 self.clients[job_type] = GenericClient(configs[job_type])
@@ -44,7 +43,11 @@ class Dispatcher:
         except Exception as e:
             logger.error(
                 f"Failed to run remote function {remote_function}: {e} stack trace: {traceback.format_exc()}")
-            return FunctionCallError(message=str(e))
+            return FunctionCallError(message=str(e), error=remote_function)
+
+    async def allow_run_job(self, job: Job):
+        logger.info(f"Allowing job {job.id} {job.type}")
+        return True
 
     async def execute_job(self, job: Job) -> Union[BaseModel|MethodCallError]:
         logger.info(f"Executing job {job.id} {job.type}")
@@ -66,10 +69,10 @@ class Dispatcher:
                 return result
         except Exception as e:
             logger.error(f"Failed to execute job {job.id}: {e} stack trace: {traceback.format_exc()}")
-            return MethodCallError(message=str(e))
+            return MethodCallError(message=str(e), error=f"{job.id} {job.type}", status=JobStatuses.failed)
 
     async def dispatch_job(self, job: Job):
-        logger.info(f"Dispatching job {job.id} {job.type} with payload: {job.payload} keep alive {job.keep_alive} storage {job.storage}")
+        logger.info(f"[**] Dispatching job {job.id} {job.type} with payload: {job.payload} keep alive {job.keep_alive} storage {job.storage}")
         try:
             await self.jobs.set_job_status(job, JobStatuses.in_progress)
             response = self.clients[job.type].process_data(job)

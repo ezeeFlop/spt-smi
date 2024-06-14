@@ -103,7 +103,7 @@ services:
       - /data/smi/prod/data:/data
       - /data/smi/prod/cache:/home/spt/.cache
 
-    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55002 --type LLM_SERVICE"
+    command: "python -m spt.services.server --host 0.0.0.0 --port 55002 --type LLM_SERVICE"
     deploy:
       replicas: 1
       placement:
@@ -138,7 +138,7 @@ services:
       - /data/smi/prod/data:/data
       - /data/smi/prod/cache:/home/spt/.cache
 
-    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55001 --type IMAGE_SERVICE"
+    command: "python -m spt.services.server --host 0.0.0.0 --port 55001 --type IMAGE_SERVICE"
     deploy:
       replicas: 1
       placement:
@@ -157,6 +157,7 @@ services:
       - redis
       - rabbitmq
       - minio
+      - whisper
     environment:
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
@@ -176,13 +177,12 @@ services:
       - /data/smi/prod/cache:/home/spt/.cache
       - /data/smi/prod/cache:/home/spt/.local/share
 
-    command: "python -m spt.services.generic.service --host 0.0.0.0 --port 55003 --type AUDIO_SERVICE"
+    command: "python -m spt.services.server --host 0.0.0.0 --port 55003 --type AUDIO_SERVICE"
     deploy:
       replicas: 1
       placement:
         constraints:
           - node.labels.GPU == true
-
 
   redis:
     image: redis:latest
@@ -280,7 +280,7 @@ networks:
     attachable: true
   ollama:
     driver: overlay
-    internal: true
+    external: true
     attachable: true
 
 volumes:

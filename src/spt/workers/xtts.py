@@ -1,62 +1,59 @@
-from spt.models.audio import  TextToSpeechRequest, TextToSpeechResponse, TextToSpeechSpeakerRequest
-from spt.services.service import Service
-from spt.services.generic.service import GenericServiceServicer
+from spt.models.audio import TextToSpeechRequest, TextToSpeechResponse, TextToSpeechSpeakerRequest
+from spt.services.service import Service, Worker
+from spt.services.service import GenericServiceServicer
 from TTS.tts.configs.xtts_config import XttsConfig
 from TTS.tts.models.xtts import Xtts
 from TTS.utils.generic_utils import get_user_data_dir
 from TTS.utils.manage import ModelManager
 import base64
 import numpy as np
-import logging
 import torch
-from spt.utils import create_temp_file, remove_temp_file
+from spt.utils import create_temp_file, remove_temp_file, get_available_device
 import os
 import io
 import wave
 
-from spt.services.gpu import get_available_device
-logger = logging.getLogger(__name__)
-
-class TTSService(Service):
-
-    def __init__(self, servicer: GenericServiceServicer = None) -> None:
-        super().__init__(servicer=servicer)
+class XTTS(Worker):
+    def __init__(self, name: str, service: Service, model: str, logger):
+        super().__init__(name=name, service=service, model=model, logger=logger)
         self.tts_model = None
 
     def __del__(self):
-        logger.info("Claiming memory")
+        self.logger.info("Claiming memory")
         self.cleanup()
 
     def cleanup(self):
         super().cleanup()
         if self.tts_model is not None:
-            logger.info(f"Closing model")
+            self.logger.info(f"Closing model")
             del self.tts_model
         torch.cuda.empty_cache()
 
     def load_model(self, model_name: str):
         torch.set_num_threads(os.cpu_count())
         device = get_available_device()
-        logger.info(f"Downloading XTTS Model: {model_name}")
+        self.logger.info(f"Downloading XTTS Model: {model_name}")
         ModelManager().download_model(model_name)
         model_path = os.path.join(get_user_data_dir(
             "tts"), model_name.replace("/", "--"))
-        logger.info("XTTS Model downloaded")
+        self.logger.info("XTTS Model downloaded")
 
-        logger.info("Loading XTTS")
+        self.logger.info("Loading XTTS")
         config = XttsConfig()
         config.load_json(os.path.join(model_path, "config.json"))
         self.tts_model = Xtts.init_from_config(config)
         self.tts_model.load_checkpoint(
             config, checkpoint_dir=model_path, eval=True, use_deepspeed=True if device == "cuda" else False)
         self.tts_model.to(device)
-        logger.info("XTTS Loaded.")
+        self.logger.info("XTTS Loaded.")
 
-    def speech_to_text(self, request: TextToSpeechRequest):
-        logger.info(f"Text To Speech model {request.model}")
+    async def work(self, request: TextToSpeechRequest) -> TextToSpeechResponse:
+        await super().work(request)
+
+        self.logger.info(f"Text To Speech model {self.model}")
         result = None
         if self.tts_model is None:
-            self.load_model(model_name=request.model)
+            self.load_model(model_name=self.model)
 
         speaker = self.get_speaker(request.speaker_id)
         if speaker is None:
@@ -79,8 +76,8 @@ class TTSService(Service):
 
         wav_file = self.encode_audio_common(wav.tobytes(), encode_base64=False)
 
-        if self.should_store():
-            url = self.store_bytes(
+        if self.service.should_store():
+            url = self.service.store_bytes(
                 bytes=wav_file, name=request.text, extension="wav")
             return TextToSpeechResponse(url=url)
         else:
@@ -148,14 +145,3 @@ class TTSService(Service):
             }
         else:
             return {}
-
-def main():
- 
-    tts = TTSService()
-    result = tts.speech_to_text(TextToSpeechRequest(
-        model="tts_models/multilingual/multi-dataset/xtts_v2", text="Hello, World!", language="en", speaker_id="Daisy Studious"))
-    print(result)
-
-
-if __name__ == '__main__':
-    main()

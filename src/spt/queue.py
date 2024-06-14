@@ -29,7 +29,7 @@ class Priority(Enum):
 class Headers(BaseModel):
     job_id: str
     job_type: str
-    job_model_id: str
+    job_worker_id: str
     job_remote_class: str
     job_remote_method: str
     job_request_model_class: str

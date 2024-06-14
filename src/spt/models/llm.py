@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
-from enum import Enum
+from spt.models.workers import WorkerBaseRequest
 
 # Modèles pour l'endpoint Generate a completion
 
@@ -56,8 +56,7 @@ class ChatMessage(BaseModel):
     images: Optional[List[str]] = None
 
 
-class ChatRequest(BaseModel):
-    model: str
+class ChatRequest(WorkerBaseRequest):
     messages: List[ChatMessage]
     format: Optional[str] = None
     options: Optional[Options] = None
@@ -78,16 +77,9 @@ class ChatResponse(BaseModel):
 # Modèles pour l'endpoint Generate Embeddings
 
 
-class EmbeddingsRequest(BaseModel):
-    model: str
+class EmbeddingsRequest(WorkerBaseRequest):
     prompt: str
     options: Optional[Options] = None
 
-
 class EmbeddingsResponse(BaseModel):
     embedding: List[float]
-
-
-class EngineResult(str, Enum):
-    success = "SUCCESS",
-    error = "ERROR"

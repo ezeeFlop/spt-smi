@@ -16,8 +16,9 @@ message GenericRequest {
     string request_model_class = 5;
     string remote_function = 6;
     string remote_module = 7;
-    int32 keep_alive = 8;
-    string storage = 9;
+    string worker_id = 8;
+    int32 keep_alive = 9;
+    string storage = 10;
 }
 
 // Définition de la réponse générique avec payload JSON

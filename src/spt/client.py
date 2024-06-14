@@ -1,11 +1,11 @@
 import requests
 from typing import Optional, Type, Union
 from pydantic import BaseModel, ValidationError
-from spt.models.jobs import JobResponse, ArtifactsList, JobStatuses
-from spt.models.txt2img import TextToImageRequest
+from spt.models.jobs import JobResponse, TextToImageResponse, JobStatuses
+from spt.models.image import TextToImageRequest
 from spt.models.llm import ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
 from spt.models.audio import SpeechToTextRequest, TextToSpeechRequest, SpeechToTextResponse, TextToSpeechResponse
-from spt.models.gpus import GPUsInfo
+from spt.utils import GPUsInfo
 
 class SMIClient:
     def __init__(self, base_url: str, api_key: str):
@@ -38,7 +38,7 @@ class SMIClient:
     # Text-to-Image Routes
     def text_to_image(self, request_data: TextToImageRequest, async_key: Optional[str] = None,
                       keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None, 
-                      priority_key: Optional[str] = None) -> Union[JobResponse, ArtifactsList, None]:
+                      priority_key: Optional[str] = None) -> Union[JobResponse, TextToImageResponse, None]:
         headers = {
             "x-smi-async": async_key,
             "x-smi-keep-alive": str(keep_alive_key) if keep_alive_key else None,
@@ -47,12 +47,12 @@ class SMIClient:
         }
         data = request_data.dict()
         response = self._post("/v1/text-to-image", data, headers)
-        return self._validate_response(response, Union[JobResponse, ArtifactsList])
+        return self._validate_response(response, Union[JobResponse, TextToImageResponse])
 
-    def retrieve_image_job(self, job_id: str) -> Union[JobResponse, ArtifactsList, None]:
+    def retrieve_image_job(self, job_id: str) -> Union[JobResponse, TextToImageResponse, None]:
         endpoint = f"/v1/text-to-image/{job_id}"
         response = self._get(endpoint)
-        return self._validate_response(response, Union[JobResponse, ArtifactsList])
+        return self._validate_response(response, Union[JobResponse, TextToImageResponse])
 
     # Chat Generation Routes
     def generate_chat(self, request_data: ChatRequest, async_key: Optional[str] = None,

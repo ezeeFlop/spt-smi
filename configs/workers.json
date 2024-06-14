@@ -1,0 +1,82 @@
+{
+    "realisticVision": {
+        "description": "Realistic Vision",
+        "model": "SG161222/Realistic_Vision_V3.0_VAE",
+        "worker": "spt.workers.stable_diffusion.StableDiffusion",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "disneyPixar": {
+        "description": "Disney Pixar",
+        "model": "stablediffusionapi/disney-pixar-cartoon",
+        "worker": "spt.workers.stable_diffusion.StableDiffusion",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "stable-diffusion-xl": {
+        "description": "Realistic Vision",
+        "model": "stabilityai/stable-diffusion-xl-base-1.0",
+        "worker": "spt.workers.stable_diffusion.StableDiffusion",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "stable-diffusion-turbo": {
+        "description": "Realistic Vision",
+        "model": "stabilityai/sdxl-turbo",
+        "worker": "spt.workers.stable_diffusion.StableDiffusion",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "FasterWhisperLarge": {
+        "description": "Faster Whisper Large",
+        "model": "Systran/faster-distil-whisper-large-v3",
+        "worker": "spt.workers.faster_whisper.FasterWhisper",
+        "type": "STT",
+        "request_model": "spt.models.audio.SpeechToTextRequest",
+        "response_model": "spt.models.audio.SpeechToTextResponse"
+    },
+    "WhisperLarge": {
+        "description": "Whisper Large",
+        "model": "openai/whisper-large-v3",
+        "worker": "spt.workers.whisper.Whisper",
+        "type": "STT",
+        "request_model": "spt.models.audio.SpeechToTextRequest",
+        "response_model": "spt.models.audio.SpeechToTextResponse"
+    },
+    "xtts": {
+        "description": "Xtts",
+        "model": "tts_models/multilingual/multi-dataset/xtts_v2",
+        "worker": "spt.workers.xtts.XTTS",
+        "type": "TTS",
+        "request_model": "spt.models.audio.TextToSpeechRequest",
+        "response_model": "spt.models.audio.TextToSpeechResponse"
+    },
+    "ollama_mistral": {
+        "description": "Mistral with Olllama",
+        "model": "mistral",
+        "worker": "spt.workers.ollama_chat.OllamaChat",
+        "type": "LLM",
+        "request_model": "spt.models.llm.ChatRequest",
+        "response_model": "spt.models.llm.ChatResponse"
+    },
+    "ollama_llava": {
+        "description": "LLAVA with Ollama",
+        "model": "llava",
+        "worker": "spt.workers.ollama_chat.OllamaChat",
+        "type": "LLM",
+        "request_model": "spt.models.llm.ChatRequest",
+        "response_model": "spt.models.llm.ChatResponse"
+    },
+    "ollama_mistral_embeddings": {
+        "description": "Mistral Embeddings with Ollama",
+        "model": "mistral",
+        "worker": "spt.workers.ollama_embeddings.OllamaEmbeddings",
+        "type": "EMBEDDING",
+        "request_model": "spt.models.llm.EmbeddingsRequest",
+        "response_model": "spt.models.llm.EmbeddingsResponse"
+    }
+}

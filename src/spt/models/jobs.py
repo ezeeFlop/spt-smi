@@ -1,12 +1,10 @@
 from pydantic import BaseModel, Field, validator
 from enum import Enum
-from typing import List, Optional
 
 class JobsTypes(str, Enum):
     image_generation = "IMAGE_GENERATION",
     llm_generation = "LLM_GENERATION",
     audio_generation = "AUDIO_GENERATION",
-    image_processing = "IMAGE_PROCESSING",
     video_generation = "VIDEO_GENERATION",
     unknown = "UNKNOWN"
 
@@ -26,15 +24,6 @@ class JobPriority(str, Enum):
 class JobStorage(str, Enum):
     local = "LOCAL",
     s3 = "S3"
-
-class ServiceResponseStatus(str, Enum):
-    success = "SUCCESS",
-    error = "ERROR",
-    content_filtered = "CONTENT_FILTERED"
-
-class ServiceStatus(str, Enum):
-    idle = "IDLE",
-    working = "WORKING",
 
 class JobResponse(BaseModel):
     id: str = Field(..., example="b7b7c5a5-98b0-4a07-af27-93bfcfa38246",

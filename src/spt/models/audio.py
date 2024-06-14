@@ -1,10 +1,9 @@
 from pydantic import BaseModel, Field, validator, field_serializer
 from typing import Optional, List, Dict
-from enum import Enum
 import base64
+from spt.models.workers import WorkerBaseRequest
 
-class TextToSpeechRequest(BaseModel):
-    model: str = Field(..., example="xtts")
+class TextToSpeechRequest(WorkerBaseRequest):
     text: str = Field(..., example="Hello, World!")
     language: str = Field(None, example="en")
     speaker_id: str = Field(..., example="virginie")
@@ -27,7 +26,8 @@ class TextToSpeechResponse(BaseModel):
                 raise ValueError("Invalid Base64 encoding")
         return v  # Pass through if it's already in bytes (not from JSON)
 
-class TextToSpeechSpeakerRequest(BaseModel):
+
+class TextToSpeechSpeakerRequest(WorkerBaseRequest):
     id: str = Field(..., example="virginie")
     sample: bytes = Field(..., example="base64 audio wav file")
     @field_serializer('sample')
@@ -42,8 +42,9 @@ class TextToSpeechSpeakerRequest(BaseModel):
             except ValueError:
                 raise ValueError("Invalid Base64 encoding")
         return v  # Pass through if it's already in bytes (not from JSON)
-class SpeechToTextRequest(BaseModel):
-    model: str = Field(..., example="whisper-1")
+    
+
+class SpeechToTextRequest(WorkerBaseRequest):
     file: bytes = Field(
         ...,
         description='The audio file object (not file name) to transcribe, in one of these formats: flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav, or webm.\n',

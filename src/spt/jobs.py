@@ -8,7 +8,7 @@ from typing import List, Optional, Union
 from spt.models.jobs import JobStatuses, JobsTypes, JobResponse
 from spt.models.remotecalls import class_to_string, string_to_class
 from spt.models.task import FunctionTask, MethodTask
-
+from spt.models.workers import WorkerConfigs
 from spt.scheduler import Scheduler
 from rich.logging import RichHandler
 from rich.console import Console
@@ -39,7 +39,7 @@ class Job:
     def __init__(self, payload: Optional[str] = None, 
                  type: Optional[JobsTypes] = None, 
                  id: Optional[str] = None, 
-                 model_id: Optional[str] = None, 
+                 worker_id: Optional[str] = None,
                  remote_class: Optional[str] = None, 
                  remote_method: Optional[str] = None,
                  request_model_class: Optional[str] = None, 
@@ -51,7 +51,7 @@ class Job:
         self.status = JobStatuses.pending
         self.message = ""
         self.type = type
-        self.model_id = model_id
+        self.worker_id = worker_id
         self.remote_class = remote_class
         self.remote_method = remote_method
         self.request_model_class = request_model_class
@@ -61,6 +61,8 @@ class Job:
         self.thread = None
 
 class Jobs:
+    _workers_configuration = WorkerConfigs.get_configs()
+
     def __init__(self, type: JobsTypes = JobsTypes.unknown):
         self.redis = self._redis_connect()
         self.publisher = None
@@ -142,18 +144,29 @@ class Jobs:
 
 
     @classmethod
-    async def create_job(cls, payload: str,
+    async def create_job(cls, 
+                        payload: str,
                         type: JobsTypes,
-                        model_id: str,
-                        remote_method: str,
-                        remote_class: str,
-                        request_model_class: Type[BaseModel],
-                        response_model_class: Type[BaseModel],
-                        keep_alive: int,
-                        storage: str) -> Job:
+                        worker_id: str,
+                        request_model_class: Type[BaseModel] = None,
+                        response_model_class: Type[BaseModel] = None,
+                        keep_alive: Optional[int] = SERVICE_KEEP_ALIVE,
+                        storage: Optional[str] = "local",
+                        remote_method: Optional[str] = "work",
+                        remote_class: Optional[str] = "spt.services.service.Service"
+                        ) -> Job:
+        
+        if request_model_class is None:
+            request_model_class = string_to_class(
+                Jobs._workers_configuration.workers_configs[worker_id].request_model)
+
+        if response_model_class is None:
+            response_model_class = string_to_class(
+                Jobs._workers_configuration.workers_configs[worker_id].response_model)
+
         job = Job(payload=payload,
                     type=type,
-                    model_id=model_id,
+                  worker_id=worker_id,
                     remote_method=remote_method,
                     remote_class=remote_class,
                     keep_alive=keep_alive,
@@ -174,7 +187,7 @@ class Jobs:
             body=job.payload,
             priority=Priority.NORMAL,
             headers=Headers(job_id=job.id, job_type=job.type,
-                            job_model_id=job.model_id, 
+                            job_worker_id=job.worker_id,
                             job_remote_class=job.remote_class, 
                             job_remote_method=job.remote_method, 
                             job_response_model_class=job.response_model_class, 
@@ -186,11 +199,11 @@ class Jobs:
     def message_to_job(self, channel, method, properties, body):
         body = self.consumer.decode_message(body=body)
         logger.debug(
-            f"  [**] JOB ID {properties.headers['job_id']} TYPE {properties.headers['job_type']} MODEL ID {properties.headers['job_model_id']} CLASS {properties.headers['job_remote_class']} METHOD {properties.headers['job_remote_method']} Response Model Class {properties.headers['job_response_model_class']} Request Model Class {properties.headers['job_request_model_class']}")
+            f"  [**] JOB ID {properties.headers['job_id']} TYPE {properties.headers['job_type']} MODEL ID {properties.headers['job_worker_id']} CLASS {properties.headers['job_remote_class']} METHOD {properties.headers['job_remote_method']} Response Model Class {properties.headers['job_response_model_class']} Request Model Class {properties.headers['job_request_model_class']}")
 
         return Job(json.loads(body), type=JobsTypes(properties.headers['job_type']),
                 id=properties.headers['job_id'],
-                model_id=properties.headers['job_model_id'],
+                   worker_id=properties.headers['job_worker_id'],
                 remote_class=properties.headers['job_remote_class'],
                 remote_method=properties.headers['job_remote_method'],
                 response_model_class=properties.headers['job_response_model_class'],
@@ -216,7 +229,7 @@ class Jobs:
     async def receive_job(self, channel, method, properties, body):
         global dispatcher
         
-        logger.info(f"---> Receive Job {channel}, {method} {properties}")
+        logger.info(f"[*] Receive Job {channel}, {method} {properties}")
         
         job = self.message_to_job(channel, method, properties, body)
         
@@ -263,8 +276,6 @@ class Jobs:
         self.consumer.bind_queue(
             exchange_name="spt", queue_name="smi-requests", routing_key=self.routing_key
         )
-        #self.consumer.consume_messages(
-        #    queue="smi-requests", callback=self.receive_job)
         self.consumer.consume_and_check_messages(
             queue="smi-requests", process_callback=self.receive_job, auto_ack=False, condition_callback=self.can_run_job)
     
@@ -299,15 +310,15 @@ if __name__ == "__main__":
     scheduler = Scheduler()
     scheduler.add_job_method(minioFilesPruner, "* * * * *")
 
-    logger.info("Starting jobs receiver...")
+    logger.info("[*] Starting jobs receiver...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         jobs_types = [JobsTypes.image_generation, JobsTypes.llm_generation, JobsTypes.audio_generation, JobsTypes.video_generation]
         jobs = [Jobs(job_type) for job_type in jobs_types]
         futures = [executor.submit(job.start_jobs_receiver_thread)
                    for job in jobs]
         executor.submit(scheduler.start)
-        logger.info("Started jobs receivers")
+        logger.info("[**] Started jobs receivers")
         monitor_thread = executor.submit(monitor_and_restart_jobs, jobs, executor)
-        logger.info("Récepteurs de jobs démarrés et surveillance active.")
+        logger.info("[**] Started monitor thread")
 
         monitor_thread.result()

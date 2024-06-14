@@ -1,9 +1,5 @@
-from pydantic import BaseModel, Field, validator
-from enum import Enum
-from typing import List, Optional
-from spt.utils import load_json
-from config import CONFIG_PATH
-
+from pydantic import BaseModel
+from typing import Optional
 
 class FunctionTask(BaseModel):
     function: Optional[str] = None

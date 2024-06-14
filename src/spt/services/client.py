@@ -27,7 +27,7 @@ class GenericClient:
 
     def call_remote_function(self, remote_module: str, remote_function: str, payload: dict, response_model_class:str)-> generic_pb2.GenericResponse:
         logger.info(
-            f"Execute remote function {remote_function} with payload: {payload}")
+            f"[**] Execute remote function {remote_function} with payload: {payload}")
         request = generic_pb2.GenericRequest(
             json_payload=json.dumps(payload).encode('utf-8'), 
             remote_function=remote_function,
@@ -42,16 +42,17 @@ class GenericClient:
         string_payload = json.dumps(job.payload)
         json_payload = string_payload.encode('utf-8')
         logger.info(
-            f"Execute service request Class {job.remote_class} Method {job.remote_method} keep_alive {job.keep_alive}  storage {job.storage} with payload: {json_payload}")
+            f"[**] Execute service request Class {job.remote_class} Method {job.remote_method} keep_alive {job.keep_alive}  storage {job.storage} with payload: {json_payload}")
         request = generic_pb2.GenericRequest(
             json_payload=json_payload, 
             remote_class=job.remote_class, 
             remote_method=job.remote_method, 
             request_model_class=job.request_model_class, 
             response_model_class=job.response_model_class,
+            worker_id=job.worker_id,
             storage=job.storage,
             keep_alive=job.keep_alive)
         
         response = self.stub.ProcessData(request)
-        logger.info(f"Service response with payload: {response.json_payload}")
+        logger.info(f"[**] Service response with payload: {response.json_payload}")
         return response

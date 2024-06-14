@@ -1,16 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 from typing import List, Optional
-from spt.utils import load_json
-from config import CONFIG_PATH
-
-class ModelType(str, Enum):
-    audio = "AUDIO",
-    classification = "CLASSIFICATION",
-    picture = "PICTURE",
-    storage = "STORAGE",
-    text = "TEXT",
-    video = "VIDEO"
+from spt.models.workers import WorkerResult, WorkerBaseRequest
 
 class StylesPreset(str, Enum):
     threeD_model = "3d-model",
@@ -58,8 +49,8 @@ class TextPrompt(BaseModel):
     weight: float = Field(default=0.5, ge=0, le=1,
                           description="Poids du prompt, entre 0 et 1")
 
-class TextToImageRequest(BaseModel):
-    model: str = Field(default=ModelType.text, description="Type of model to use")
+
+class TextToImageRequest(WorkerBaseRequest):
     height: int = Field(default=512, ge=128, description="""Height of the image to generate, in pixels, in an increment divible by 64.
 
 Engine-specific dimension validation:
@@ -108,45 +99,13 @@ SD v1.6: must be between 320x320 and 1536x1536""")
     style_preset: StylesPreset = Field(default=StylesPreset.photographic,
                                        description="Pass in a style preset to guide the image model towards a particular style. This list of style presets is subject to change.")
 
-
-class Models(BaseModel):
-    name: str = Field(..., example="SDXL Beta")
-    id: str = Field(..., example="sdxl-beta")
-    description: str = Field(..., example="SDXL Beta")
-    type: ModelType = Field(..., example="TEXT")
-
-class EnginesList(BaseModel):
-    engines: List[Models] = Field(..., example=[
-            {
-                "description" : "Realistic Vision",
-                "id" : "realisticVision",
-                "name" : "SG161222/Realistic_Vision_V3.0_VAE",
-                "type" : "PICTURE"
-            },
-            {
-                "description": "Disney Pixar",
-                "id": "disneyPixar",
-                "name": "stablediffusionapi/disney-pixar-cartoon",
-                "type": "PICTURE"
-            }
-        ])
-    
-    @classmethod
-    def get_engines(self):
-        return load_json("engines", CONFIG_PATH)
-
-class EngineResult(str, Enum):
-    success = "SUCCESS",
-    error = "ERROR",
-    content_filtered = "CONTENT_FILTERED"
-
 class Artifact(BaseModel):
     base64: Optional[str] = None
     url: Optional[str] = None
-    finishReason: EngineResult = Field(..., example="SUCCESS")
+    finishReason: WorkerResult = Field(..., example="SUCCESS")
     seed: int = Field(..., example=1050625087)
 
-class ArtifactsList(BaseModel):
+class TextToImageResponse(BaseModel):
     artifacts: List[Artifact] = Field(..., example=[
             {
                 "base64": "iVBORw0KGgoAAAANSUhEUgAAAO4AAAB...",
