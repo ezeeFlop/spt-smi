@@ -6,6 +6,8 @@ services:
     image: spongetheory/spt-smi:latest
     ports:
       - "9999:9999"
+      - "10000-60000:10000-60000"
+
     networks:
       - webfacing
       - dbs
@@ -18,6 +20,7 @@ services:
       - audiosevice
       - imageservice
     environment:
+      - STREAMING_PORTS_RANGE=10000-60000
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - RABBITMQ_HOST=spt-smi_rabbitmq
@@ -77,6 +80,7 @@ services:
     image: spongetheory/spt-smi:latest
     ports:
       - "55002:55002"
+      - "5000-50000:5000-50000"
     networks:
       - servicesworkers
       - dbs
@@ -87,6 +91,7 @@ services:
       - minio
       - ollama
     environment:
+      - STREAMING_PORTS_RANGE=5000-50000
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - LLM_GENERATION=0.0.0.0:55002
@@ -115,6 +120,7 @@ services:
     image: spongetheory/spt-smi:latest
     ports:
       - "55001:55001"
+      - "5000-50000:5000-50000"
     networks:
       - servicesworkers
       - dbs
@@ -123,6 +129,7 @@ services:
       - rabbitmq
       - minio
     environment:
+      - STREAMING_PORTS_RANGE=5000-50000
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - IMAGE_GENERATION=0.0.0.0:55001
@@ -150,8 +157,7 @@ services:
     image: spongetheory/spt-smi:latest
     ports:
       - "55003:55003"
-      - "9090-9091:8080-8081"
-
+      - "5000-50000:5000-50000"
     networks:
       - servicesworkers
       - dbs
@@ -161,6 +167,7 @@ services:
       - minio
       - whisper
     environment:
+      - STREAMING_PORTS_RANGE=5000-50000
       - RABBITMQ_DEFAULT_USER=root
       - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
       - IMAGE_GENERATION=0.0.0.0:55001

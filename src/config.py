@@ -58,3 +58,7 @@ MINIO_SECURE_URL = os.environ['MINIO_SECURE_URL'] if os.environ.get(
     'MINIO_SECURE_URL') else False
 MINIO_FILE_DURATION = os.environ['MINIO_FILE_DURATION'] if os.environ.get(
     'MINIO_FILE_DURATION') else 5
+
+# Streaming ports ranges
+STREAMING_PORTS_RANGE = os.environ['STREAMING_PORTS_RANGE'] if os.environ.get(
+    'STREAMING_PORTS_RANGE') else '10000-55000'

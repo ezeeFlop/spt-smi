@@ -328,7 +328,7 @@ async def websocket_stream(websocket: WebSocket,
                                         outtype=WorkerStreamType.text,
                                         ip_address=ip_address,
                                         hostname=hostname,
-                                        port=find_free_port(),
+                                        port=find_free_port()+1,
                                         timeout=timeout)
     
     job = await Jobs.create_job(payload=request.model_dump_json(),

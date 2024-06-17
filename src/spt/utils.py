@@ -5,15 +5,37 @@ import os
 import json
 import tempfile
 import logging
-from config import TEMP_PATH
+from config import TEMP_PATH, STREAMING_PORTS_RANGE
 import socket
 logger = logging.getLogger(__name__)
 
 
 def find_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
-        return int(s.getsockname()[1])
+    """
+    Finds a free port within a specified range.
+
+    Args:
+        start_port (int): The starting port of the range.
+        end_port (int): The ending port of the range.
+
+    Returns:
+        int: A free port within the specified range.
+
+    Raises:
+        RuntimeError: If no free port is found within the specified range.
+    """
+    (start_port, end_port) = STREAMING_PORTS_RANGE.split('-')
+    start_port = int(start_port)
+    end_port = int(end_port)
+    for port in range(start_port, end_port + 1):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('', port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError(f"No free port found in range {start_port}-{end_port}")
+
 
 def load_json(file, dir="./"):
     jsonFile = os.path.join(dir, f"{file}.json")
