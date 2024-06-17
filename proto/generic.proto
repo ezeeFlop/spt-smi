@@ -24,4 +24,5 @@ message GenericRequest {
 // Définition de la réponse générique avec payload JSON
 message GenericResponse {
     bytes json_payload = 1; // Le payload JSON est reçu en tant que bytes
+    string response_model_class = 2;
 }

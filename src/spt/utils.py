@@ -6,8 +6,14 @@ import json
 import tempfile
 import logging
 from config import TEMP_PATH
-
+import socket
 logger = logging.getLogger(__name__)
+
+
+def find_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('', 0))
+        return int(s.getsockname()[1])
 
 def load_json(file, dir="./"):
     jsonFile = os.path.join(dir, f"{file}.json")

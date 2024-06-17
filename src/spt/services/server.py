@@ -25,7 +25,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
     def __init__(self, type: JobsTypes) -> None:
         super().__init__()
@@ -88,29 +87,22 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
                 response = await self.execute_method(instance, payload)
 
             response = response.model_dump_json().encode('utf-8')
-            return generic_pb2.GenericResponse(json_payload=response)
+            return generic_pb2.GenericResponse(json_payload=response, response_model_class=payload['response_model_class'])
 
         except (ValidationError, ValueError) as e:
             logger.error(f"Validation error processing data: {str(e)}")
-            error_response = {
-                'status': JobStatuses.failed,
-                'message': f"Failed to process request due to validation error: {str(e)}",
-                'error': traceback.format_exc()
-            }
-            return generic_pb2.GenericResponse(json_payload=json.dumps(error_response).encode('utf-8'))
+            error = MethodCallError(message=f"Failed to process request due to validation error: {str(e)}", status=JobStatuses.failed, error=traceback.format_exc())
+            return generic_pb2.GenericResponse(json_payload=error.model_dump_json().encode("utf-8"), response_model_class="MethodCallError")
         except Exception as e:
             logger.error(f"Error processing data: {traceback.format_exc()}")
-            error_response = {
-                'status': JobStatuses.failed,
-                'message': f"Failed to process request due to: {str(e)}",
-                'error': traceback.format_exc()
-            }
-            return generic_pb2.GenericResponse(json_payload=json.dumps(error_response).encode('utf-8'))
+            error = MethodCallError(
+                message=f"Failed to process request due to: {str(e)}", status=JobStatuses.failed, error=traceback.format_exc())
+            return generic_pb2.GenericResponse(json_payload=error.model_dump_json().encode("utf-8"), response_model_class="MethodCallError")
 
     async def execute_function(self, payload: dict) -> BaseModel:
         module = string_to_module(payload['remote_module'])
         func = getattr(module, payload['remote_function'])
-        result = await func()
+        result = await func()if asyncio.iscoroutinefunction(func) else func()
         response_model_class = string_to_class(payload['response_model_class'])
         return response_model_class.model_validate(result)
 
@@ -146,7 +138,6 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
                 if hasattr(inst, 'check_workers'):
                     inst.check_workers()
             await asyncio.sleep(60)  # Cleanup every minute
-
 
 async def serve(max_workers: int = 10, host: str = "localhost", port: int = 50051, type: JobsTypes = JobsTypes.unknown):
     server = grpc.aio.server(ThreadPoolExecutor(max_workers=max_workers))

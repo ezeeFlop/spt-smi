@@ -26,6 +26,8 @@ import requests
 import zmq
 import traceback
 from zmq.asyncio import Context, Poller
+import socket
+from spt.utils import find_free_port
 
 console = Console()
 
@@ -316,9 +318,17 @@ async def websocket_stream(websocket: WebSocket,
 
     logger.info(f"Websocket connection with worker_id: {worker_id}")
 
+    hostname = socket.gethostname()
+
+    # Get the IP address associated with the hostname
+    ip_address = socket.gethostbyname(hostname)
+
     request = WorkerStreamManageRequest(action="start", worker_id=worker_id,
-                                        intype=WorkerStreamType.bytes, 
-                                        outtype=WorkerStreamType.json, 
+                                        intype=WorkerStreamType.text, 
+                                        outtype=WorkerStreamType.text,
+                                        ip_address=ip_address,
+                                        hostname=hostname,
+                                        port=find_free_port(),
                                         timeout=timeout)
     
     job = await Jobs.create_job(payload=request.model_dump_json(),
@@ -331,7 +341,7 @@ async def websocket_stream(websocket: WebSocket,
                                 keep_alive=SERVICE_KEEP_ALIVE)
 
     response: WorkerStreamManageResponse = await submit_job(job, 'False', JobPriority.high)
-
+    print (response)
     await stream(websocket, request=request, response=response)
 
 
@@ -341,12 +351,11 @@ async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, respo
     logger.info(f"Websocket {response}")
 
     context = Context()
-
     sender = context.socket(zmq.PUSH)
-    sender.bind(f"tcp://{response.ip_address}:{response.inport}")
+    sender.bind(f"tcp://*:{request.port}")
 
     receiver = context.socket(zmq.PULL)
-    receiver.connect(f"tcp://{response.ip_address}:{response.outport}")
+    receiver.connect(f"tcp://{response.ip_address}:{response.port}")
 
     poller = Poller()
     poller.register(receiver, zmq.POLLIN)
@@ -512,11 +521,18 @@ async def text_to_speech(request_data: TextToSpeechRequest, accept=Header(None),
 
     return result
 
-async def submit_job(job: Job, async_key: str, priority_key: str):
+async def submit_job(job: Job, async_key: str, priority_key: str) -> Type[BaseModel] | JobResponse:
+    job_result = None
     if priority_key == JobPriority.high:
-        return await dispatcher.execute_job(job)
-    await jobs[job.type].add_job(job)
-    return await get_job_result(job, async_key)
+        job_result = await dispatcher.execute_job(job)
+    else:
+        await jobs[job.type].add_job(job)
+        job_result = await get_job_result(job, async_key)
+
+    if isinstance(job_result, JobResponse) and job_result.status == JobStatuses.failed:
+        raise HTTPException(status_code=503, detail=job_result.message)
+    
+    return job_result
 
 async def get_job_result(job: Job, async_key: str) -> Type[BaseModel] | JobResponse:
     if async_key:

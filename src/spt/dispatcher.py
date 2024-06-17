@@ -49,7 +49,7 @@ class Dispatcher:
         logger.info(f"Allowing job {job.id} {job.type}")
         return True
 
-    async def execute_job(self, job: Job) -> Union[BaseModel|MethodCallError]:
+    async def execute_job(self, job: Job) -> Union[BaseModel | JobResponse]:
         logger.info(f"Executing job {job.id} {job.type}")
         try:
             job.payload = json.loads(job.payload)
@@ -58,18 +58,18 @@ class Dispatcher:
             
             payload = response.json_payload.decode('utf-8')
 
-            if "status" in payload:
+            if response.response_model_class == class_to_string(MethodCallError):
                 logger.error(f"Job {job.id} failed: {payload}")
                 error = MethodCallError(**json.loads(payload))
                 if error.status == JobStatuses.failed:
-                    return JobResponse(id=job.id, status=error.status, type=JobsTypes.unknown, message=error.message)
+                    return JobResponse(id=job.id, status=JobStatuses.failed, type=job.type, message=error.message)
             else:
                 response_model_class = string_to_class(job.response_model_class)
                 result = response_model_class.model_validate_json(payload)
                 return result
         except Exception as e:
             logger.error(f"Failed to execute job {job.id}: {e} stack trace: {traceback.format_exc()}")
-            return MethodCallError(message=str(e), error=f"{job.id} {job.type}", status=JobStatuses.failed)
+            return JobResponse(id=job.id, status=JobStatuses.failed, type=job.type, message=f"Failed to execute job {job.id}: {e} stack trace: {traceback.format_exc()}")
 
     async def dispatch_job(self, job: Job):
         logger.info(f"[**] Dispatching job {job.id} {job.type} with payload: {job.payload} keep alive {job.keep_alive} storage {job.storage}")
@@ -79,7 +79,7 @@ class Dispatcher:
            
             payload = response.json_payload.decode('utf-8')
 
-            if "status" in payload:
+            if response.response_model_class == class_to_string(MethodCallError):
                 logger.error(f"Job {job.id} failed: {payload}")
                 error = MethodCallError(**json.loads(payload))
                 if error.status == JobStatuses.failed:

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rgeneric.proto\x12\x07generic\"\xf6\x01\n\x0eGenericRequest\x12\x14\n\x0cjson_payload\x18\x01 \x01(\x0c\x12\x14\n\x0cremote_class\x18\x02 \x01(\t\x12\x15\n\rremote_method\x18\x03 \x01(\t\x12\x1c\n\x14response_model_class\x18\x04 \x01(\t\x12\x1b\n\x13request_model_class\x18\x05 \x01(\t\x12\x17\n\x0fremote_function\x18\x06 \x01(\t\x12\x15\n\rremote_module\x18\x07 \x01(\t\x12\x11\n\tworker_id\x18\x08 \x01(\t\x12\x12\n\nkeep_alive\x18\t \x01(\x05\x12\x0f\n\x07storage\x18\n \x01(\t\"\'\n\x0fGenericResponse\x12\x14\n\x0cjson_payload\x18\x01 \x01(\x0c\x32R\n\x0eGenericService\x12@\n\x0bProcessData\x12\x17.generic.GenericRequest\x1a\x18.generic.GenericResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rgeneric.proto\x12\x07generic\"\xf6\x01\n\x0eGenericRequest\x12\x14\n\x0cjson_payload\x18\x01 \x01(\x0c\x12\x14\n\x0cremote_class\x18\x02 \x01(\t\x12\x15\n\rremote_method\x18\x03 \x01(\t\x12\x1c\n\x14response_model_class\x18\x04 \x01(\t\x12\x1b\n\x13request_model_class\x18\x05 \x01(\t\x12\x17\n\x0fremote_function\x18\x06 \x01(\t\x12\x15\n\rremote_module\x18\x07 \x01(\t\x12\x11\n\tworker_id\x18\x08 \x01(\t\x12\x12\n\nkeep_alive\x18\t \x01(\x05\x12\x0f\n\x07storage\x18\n \x01(\t\"E\n\x0fGenericResponse\x12\x14\n\x0cjson_payload\x18\x01 \x01(\x0c\x12\x1c\n\x14response_model_class\x18\x02 \x01(\t2R\n\x0eGenericService\x12@\n\x0bProcessData\x12\x17.generic.GenericRequest\x1a\x18.generic.GenericResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -24,7 +24,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GENERICREQUEST']._serialized_start=27
   _globals['_GENERICREQUEST']._serialized_end=273
   _globals['_GENERICRESPONSE']._serialized_start=275
-  _globals['_GENERICRESPONSE']._serialized_end=314
-  _globals['_GENERICSERVICE']._serialized_start=316
-  _globals['_GENERICSERVICE']._serialized_end=398
+  _globals['_GENERICRESPONSE']._serialized_end=344
+  _globals['_GENERICSERVICE']._serialized_start=346
+  _globals['_GENERICSERVICE']._serialized_end=428
 # @@protoc_insertion_point(module_scope)

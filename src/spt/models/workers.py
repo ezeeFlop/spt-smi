@@ -22,13 +22,15 @@ class WorkerStreamManageRequest(WorkerBaseRequest):
     intype: WorkerStreamType = Field(..., example="json")
     outtype: WorkerStreamType = Field(..., example="json")
     timeout: int = Field(..., example=30)
+    ip_address: str = Field(..., example="127.0.0.1")
+    hostname: str = Field(..., example="localhost")
+    port: int = Field(..., example=5555)
 
 class WorkerStreamManageResponse(BaseModel):
     state: WorkerState = Field(..., example="SUCCESS")
-    inport: int = Field(..., example=5555)
-    outport: int = Field(..., example=5556)
-    host: str = Field(..., example="localhost")
     ip_address: str = Field(..., example="127.0.0.1")
+    hostname: str = Field(..., example="localhost")
+    port: int = Field(..., example=5555)
 
 class WorkerType(str, Enum):
     audio = "AUDIO"

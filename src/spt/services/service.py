@@ -11,6 +11,7 @@ from pydantic import BaseModel, ValidationError
 import importlib
 import logging
 from typing import Dict, Any, Optional
+from spt.utils import find_free_port
 
 class Service:
     def __init__(self, servicer: GenericServiceServicer, max_run_time: int = 600) -> None:
@@ -85,11 +86,6 @@ class Service:
         worker.stop()
         return result
 
-    def find_free_port(self) -> int:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind(('', 0))
-            return int(s.getsockname()[1])
-
     async def stream(self, request: WorkerStreamManageRequest) -> WorkerStreamManageResponse:
             # Get the hostname of the current machine
             hostname = socket.gethostname()
@@ -101,14 +97,14 @@ class Service:
             worker = await self.get_worker(request.worker_id)
             
             # Find a free port for input
-            input_port = self.find_free_port()
+            input_port = find_free_port()
             
             # Find a free port for output
-            output_port = self.find_free_port()
+            output_port = request.port
 
             # Start the stream in the background using asyncio
             worker.stream_task = asyncio.create_task(
-                worker.start_stream(ip=ip_address, 
+                worker.start_stream(ip=request.ip_address, 
                                     input_port=input_port, 
                                     output_port=output_port,
                                     intype=request.intype,
@@ -117,10 +113,9 @@ class Service:
                                     )
             
             # Return a response with the stream details
-            return WorkerStreamManageResponse(host=hostname,
+            return WorkerStreamManageResponse(hostname=hostname,
                                             state=WorkerState.streaming, 
-                                            inport=input_port, 
-                                            outport=output_port, 
+                                            port=input_port, 
                                             ip_address=ip_address)
 
     def set_storage(self, storage: str):

@@ -150,6 +150,8 @@ services:
     image: spongetheory/spt-smi:latest
     ports:
       - "55003:55003"
+      - "9090-9091:8080-8081"
+
     networks:
       - servicesworkers
       - dbs

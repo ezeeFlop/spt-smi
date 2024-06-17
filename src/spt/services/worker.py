@@ -41,10 +41,10 @@ class Worker:
         # Setting up ZeroMQ sockets
 
         sender = self.context.socket(zmq.PUSH)
-        sender.bind(f"tcp://{ip}:{output_port}")
+        sender.bind(f"tcp://*:{input_port}")
 
         receiver = self.context.socket(zmq.PULL)
-        receiver.connect(f"tcp://{ip}:{input_port}")
+        receiver.connect(f"tcp://{ip}:{output_port}")
 
         self.logger.info(
             f"Worker {self.name} Listening data on port {input_port} and sending to port {output_port} on {ip} with timeout {timeout} and input type {intype} and output type {outtype}")
