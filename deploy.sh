@@ -9,4 +9,4 @@ echo "Pushing docker image..." && \
 docker tag spt-smi:$(git rev-parse --short HEAD) spongetheory/spt-smi:latest && \
 docker push spongetheory/spt-smi:latest && \
 echo "Deploying to portainer..." && \
-curl -X POST https://portainer.sponge-theory.dev/api/stacks/webhooks/69d44efc-508d-4d54-9f5f-011dbb76ca7b
+curl -X POST https://portainer.sponge-theory.dev/api/stacks/webhooks/5c447230-9a3f-44e9-af63-38bf187dee8a

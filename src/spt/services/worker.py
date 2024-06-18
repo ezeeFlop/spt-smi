@@ -71,10 +71,8 @@ class Worker:
             while not self.stop_event.is_set():
                 socks = dict(await poller.poll(timeout * 1000))
                 if receiver in socks and socks[receiver] == zmq.POLLIN:
-                    
                     message = await input_func()
                     self.start_time = time.time()
-                    print (message)
                     await output_func(await self.stream(message))
                 else:
                     self.logger.info(
@@ -90,6 +88,7 @@ class Worker:
             receiver.close()
             sender.close()
             self.context.term()
+            self.status = WorkerState.idle
 
     def stop(self):
         self.status = WorkerState.idle

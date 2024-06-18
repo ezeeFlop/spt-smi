@@ -301,7 +301,7 @@ async def text_to_embeddings(request_data: EmbeddingsRequest,
     return await submit_job(job, async_key, priority_key)
 
 @app.websocket("/ws/v1/speech-to-text")
-async def websocket_stream(websocket: WebSocket, 
+async def speech_to_text_stream(websocket: WebSocket, 
                            worker_id: str, timeout: int = 30):
   
     api_key = websocket.headers.get("x-smi-key")
@@ -324,8 +324,8 @@ async def websocket_stream(websocket: WebSocket,
     ip_address = socket.gethostbyname(hostname)
 
     request = WorkerStreamManageRequest(action="start", worker_id=worker_id,
-                                        intype=WorkerStreamType.text, 
-                                        outtype=WorkerStreamType.text,
+                                        intype=WorkerStreamType.bytes, 
+                                        outtype=WorkerStreamType.json,
                                         ip_address=ip_address,
                                         hostname=hostname,
                                         port=find_free_port()+1,
@@ -341,118 +341,8 @@ async def websocket_stream(websocket: WebSocket,
                                 keep_alive=SERVICE_KEEP_ALIVE)
 
     response: WorkerStreamManageResponse = await submit_job(job, 'False', JobPriority.high)
-    print (response)
     await stream(websocket, request=request, response=response)
 
-
-async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, response: WorkerStreamManageResponse):
-    await websocket.accept()
-
-    logger.info(f"Websocket {response}")
-
-    context = Context()
-    sender = context.socket(zmq.PUSH)
-    sender.bind(f"tcp://*:{request.port}")
-
-    receiver = context.socket(zmq.PULL)
-    receiver.connect(f"tcp://{response.ip_address}:{response.port}")
-
-    poller = Poller()
-    poller.register(receiver, zmq.POLLIN)
-
-    input_funcs = {
-        WorkerStreamType.text: receiver.recv_string,
-        WorkerStreamType.bytes: receiver.recv,
-        WorkerStreamType.json: receiver.recv_json
-    }
-    output_funcs = {
-        WorkerStreamType.text: sender.send_string,
-        WorkerStreamType.bytes: sender.send,
-        WorkerStreamType.json: sender.send_json
-    }
-
-    output_ws_funcs = {
-        WorkerStreamType.text: websocket.send_text,
-        WorkerStreamType.bytes: websocket.send_bytes,
-        WorkerStreamType.json: websocket.send_json
-    }
-    input_ws_funcs = {
-        WorkerStreamType.text: websocket.receive_text,
-        WorkerStreamType.bytes: websocket.receive_bytes,
-        WorkerStreamType.json: websocket.receive_json
-    }
-
-    input_func = input_funcs[request.intype]
-    output_func = output_funcs[request.outtype]
-
-    input_ws_func = input_ws_funcs[request.intype]
-    output_ws_func = output_ws_funcs[request.outtype]
-
-    async def receive_from_ws():
-        try:
-            while True:
-                try:
-                    data = await asyncio.wait_for(input_ws_func(), timeout=request.timeout)
-                    logger.info(f"Received data from WebSocket: {data}")
-                    await output_func(data)
-                except asyncio.TimeoutError:
-                    logger.info("WebSocket timed out due to inactivity")
-                    break
-        except WebSocketDisconnect as e:
-            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
-        except asyncio.CancelledError:
-            logger.info("Task receive_from_ws cancelled")
-        except Exception as e:
-            logger.error(
-                f"Error in receive_from_ws: {e} {traceback.format_exc()}")
-        finally:
-            try:
-                receiver.close()
-                sender.close()
-                context.term()
-                if websocket.state == WebSocketState.CONNECTED:
-                    await websocket.close()
-            except Exception as e:
-                logger.error(
-                    f"Error during cleanup in receive_from_ws: {e} {traceback.format_exc()}")
-
-    async def send_to_ws():
-        try:
-            while True:
-                events = await poller.poll(timeout=1000)
-                if receiver in dict(events):
-                    message = await input_func()
-                    logger.info(f"Received message from ZeroMQ: {message}")
-                    await output_ws_func(message)
-        except WebSocketDisconnect as e:
-            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
-        except asyncio.CancelledError:
-            logger.info("Task send_to_ws cancelled")
-        except Exception as e:
-            logger.error(f"Error in send_to_ws: {e} {traceback.format_exc()}")
-        finally:
-            try:
-                receiver.close()
-                sender.close()
-                context.term()
-                if websocket.state == WebSocketState.CONNECTED:
-                    await websocket.close()
-            except Exception as e:
-                logger.error(
-                    f"Error during cleanup in send_to_ws: {e} {traceback.format_exc()}")
-
-    receive_task = asyncio.create_task(
-        receive_from_ws(), name="receive_from_ws")
-    send_task = asyncio.create_task(send_to_ws(), name="send_to_ws")
-
-    try:
-        await asyncio.gather(send_task, receive_task)
-    except asyncio.CancelledError:
-        logger.info("Main gather task cancelled")
-    finally:
-        receive_task.cancel()
-        send_task.cancel()
-        await asyncio.gather(receive_task, send_task, return_exceptions=True)
 
 @app.post("/v1/speech-to-text", response_model=Union[JobResponse, SpeechToTextResponse], tags=["Speech To Text Generation"])
 async def speech_to_text(
@@ -550,3 +440,113 @@ async def get_job_result(job: Job, async_key: str) -> Type[BaseModel] | JobRespo
         if status.status == JobStatuses.failed:
             return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
     raise HTTPException(status_code=408, detail="Job timeout")
+
+
+async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, response: WorkerStreamManageResponse):
+    await websocket.accept()
+
+    logger.info(f"Websocket {response}")
+
+    context = Context()
+    sender = context.socket(zmq.PUSH)
+    sender.bind(f"tcp://*:{request.port}")
+
+    receiver = context.socket(zmq.PULL)
+    receiver.connect(f"tcp://{response.ip_address}:{response.port}")
+
+    poller = Poller()
+    poller.register(receiver, zmq.POLLIN)
+
+    input_funcs = {
+        WorkerStreamType.text: receiver.recv_string,
+        WorkerStreamType.bytes: receiver.recv,
+        WorkerStreamType.json: receiver.recv_json
+    }
+    output_funcs = {
+        WorkerStreamType.text: sender.send_string,
+        WorkerStreamType.bytes: sender.send,
+        WorkerStreamType.json: sender.send_json
+    }
+
+    output_ws_funcs = {
+        WorkerStreamType.text: websocket.send_text,
+        WorkerStreamType.bytes: websocket.send_bytes,
+        WorkerStreamType.json: websocket.send_json
+    }
+    input_ws_funcs = {
+        WorkerStreamType.text: websocket.receive_text,
+        WorkerStreamType.bytes: websocket.receive_bytes,
+        WorkerStreamType.json: websocket.receive_json
+    }
+
+    input_func = input_funcs[request.outtype]
+    output_func = output_funcs[request.intype]
+
+    input_ws_func = input_ws_funcs[request.intype]
+    output_ws_func = output_ws_funcs[request.outtype]
+
+    async def receive_from_ws():
+        try:
+            while True:
+                try:
+                    data = await asyncio.wait_for(input_ws_func(), timeout=request.timeout)
+                    logger.debug(f"Received data from WebSocket: {data}")
+                    await output_func(data)
+                except asyncio.TimeoutError:
+                    logger.info("WebSocket timed out due to inactivity")
+                    break
+        except WebSocketDisconnect as e:
+            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
+        except asyncio.CancelledError:
+            logger.info("Task receive_from_ws cancelled")
+        except Exception as e:
+            logger.error(
+                f"Error in receive_from_ws: {e} {traceback.format_exc()}")
+        finally:
+            try:
+                receiver.close()
+                sender.close()
+                context.term()
+                if websocket.state == WebSocketState.CONNECTED:
+                    await websocket.close()
+            except Exception as e:
+                logger.error(
+                    f"Error during cleanup in receive_from_ws: {e} {traceback.format_exc()}")
+
+    async def send_to_ws():
+        try:
+            while True:
+                events = await poller.poll(timeout=1000)
+                if receiver in dict(events):
+                    message = await input_func()
+                    logger.debug(f"Received message from ZeroMQ: {message}")
+                    await output_ws_func(message)
+        except WebSocketDisconnect as e:
+            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
+        except asyncio.CancelledError:
+            logger.info("Task send_to_ws cancelled")
+        except Exception as e:
+            logger.error(f"Error in send_to_ws: {e} {traceback.format_exc()}")
+        finally:
+            try:
+                receiver.close()
+                sender.close()
+                context.term()
+                if websocket.state == WebSocketState.CONNECTED:
+                    await websocket.close()
+            except Exception as e:
+                logger.error(
+                    f"Error during cleanup in send_to_ws: {e} {traceback.format_exc()}")
+
+    receive_task = asyncio.create_task(
+        receive_from_ws(), name="receive_from_ws")
+    send_task = asyncio.create_task(send_to_ws(), name="send_to_ws")
+
+    try:
+        await asyncio.gather(send_task, receive_task)
+    except asyncio.CancelledError:
+        logger.info("Main gather task cancelled")
+    finally:
+        receive_task.cancel()
+        send_task.cancel()
+        await asyncio.gather(receive_task, send_task, return_exceptions=True)

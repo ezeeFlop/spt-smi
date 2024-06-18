@@ -1,135 +1,366 @@
-import requests
-from typing import Optional, Type, Union
-from pydantic import BaseModel, ValidationError
-from spt.models.jobs import JobResponse, TextToImageResponse, JobStatuses
-from spt.models.image import TextToImageRequest
+import httpx
+import json
+import asyncio
+import websockets
+from typing import Callable, Optional, Union, AsyncGenerator, Dict, Any
+from pydantic import BaseModel
+from spt.models.image import TextToImageRequest, TextToImageResponse
+from spt.models.jobs import JobResponse, JobStatuses, JobPriority, JobStorage
+from spt.models.workers import WorkerConfigs
 from spt.models.llm import ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
-from spt.models.audio import SpeechToTextRequest, TextToSpeechRequest, SpeechToTextResponse, TextToSpeechResponse
-from spt.utils import GPUsInfo
+from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
+from spt.models.remotecalls import GPUsInfo, FunctionCallError
+from spt.workers.utils.audio import load_audio
+
+API_URL = "http://localhost:8999"  # Replace with your API URL
 
 class SMIClient:
-    def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url
+    def __init__(self, api_key: str):
         self.api_key = api_key
         self.headers = {
             "x-smi-key": self.api_key,
-            "Content-Type": "application/json"
         }
 
-    def _post(self, endpoint: str, data: dict, headers: Optional[dict] = None):
-        full_headers = {**self.headers, **headers} if headers else self.headers
-        url = f"{self.base_url}{endpoint}"
-        response = requests.post(url, headers=full_headers, json=data)
-        return response.json()
+    async def text_to_image(self, request_data: TextToImageRequest, worker_id: str, async_key: Optional[str] = None,
+                            keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None,
+                            priority_key: Optional[str] = None, accept: Optional[str] = None) -> Union[JobResponse, TextToImageResponse, bytes]:
+        """
+        Generates an image from text using the specified worker.
 
-    def _get(self, endpoint: str, headers: Optional[dict] = None):
-        full_headers = {**self.headers, **headers} if headers else self.headers
-        url = f"{self.base_url}{endpoint}"
-        response = requests.get(url, headers=full_headers)
-        return response.json()
+        :param request_data: Request data for text to image conversion
+        :param worker_id: Worker ID to handle the request
+        :param async_key: Optional async key for asynchronous processing
+        :param keep_alive_key: Optional keep-alive duration
+        :param storage_key: Optional storage key (local or S3)
+        :param priority_key: Optional priority key (low, normal, high)
+        :param accept: Optional accept header to specify response format
+        :return: JobResponse, TextToImageResponse, or bytes (image data)
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if async_key:
+                headers["x-smi-async"] = async_key
+            if keep_alive_key is not None:
+                headers["x-smi-keep-alive"] = str(keep_alive_key)
+            if storage_key:
+                headers["x-smi-storage"] = storage_key
+            if priority_key:
+                headers["x-smi-priority"] = priority_key
+            if accept:
+                headers["accept"] = accept
 
-    def _validate_response(self, response: dict, response_model: Type[BaseModel]):
-        try:
-            return response_model(**response)
-        except ValidationError as e:
-            print("Validation error in response:", e.json())
-            return None
+            response = await client.post(
+                f"{API_URL}/v1/text-to-image",
+                headers=headers,
+                json=request_data.model_dump(),
+                params={"worker_id": worker_id}
+            )
+            response.raise_for_status()
+            if accept == "image/png":
+                return response.content
+            if async_key:
+                return JobResponse.model_validate(response.json())
+            return TextToImageResponse.model_validate(response.json())
 
-    # Text-to-Image Routes
-    def text_to_image(self, request_data: TextToImageRequest, async_key: Optional[str] = None,
-                      keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None, 
-                      priority_key: Optional[str] = None) -> Union[JobResponse, TextToImageResponse, None]:
-        headers = {
-            "x-smi-async": async_key,
-            "x-smi-keep-alive": str(keep_alive_key) if keep_alive_key else None,
-            "x-smi-storage": storage_key,
-            "x-smi-priority": priority_key
-        }
-        data = request_data.dict()
-        response = self._post("/v1/text-to-image", data, headers)
-        return self._validate_response(response, Union[JobResponse, TextToImageResponse])
+    async def get_text_to_image(self, job_id: str, accept: Optional[str] = None) -> Union[JobResponse, TextToImageResponse, bytes]:
+        """
+        Retrieves the result of a text to image job.
 
-    def retrieve_image_job(self, job_id: str) -> Union[JobResponse, TextToImageResponse, None]:
-        endpoint = f"/v1/text-to-image/{job_id}"
-        response = self._get(endpoint)
-        return self._validate_response(response, Union[JobResponse, TextToImageResponse])
+        :param job_id: Job ID to retrieve
+        :param accept: Optional accept header to specify response format
+        :return: JobResponse, TextToImageResponse, or bytes (image data)
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if accept:
+                headers["accept"] = accept
 
-    # Chat Generation Routes
-    def generate_chat(self, request_data: ChatRequest, async_key: Optional[str] = None,
-                      keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None, 
-                      priority_key: Optional[str] = None) -> Union[ChatResponse, JobResponse, None]:
-        headers = {
-            "x-smi-async": async_key,
-            "x-smi-keep-alive": str(keep_alive_key) if keep_alive_key else None,
-            "x-smi-storage": storage_key,
-            "x-smi-priority": priority_key
-        }
-        data = request_data.dict()
-        response = self._post("/v1/chat", data, headers)
-        return self._validate_response(response, Union[ChatResponse, JobResponse])
+            response = await client.get(f"{API_URL}/v1/text-to-image/{job_id}", headers=headers)
+            response.raise_for_status()
+            if accept == "image/png":
+                return response.content
+            return TextToImageResponse.model_validate(response.json())
 
-    def retrieve_chat_job(self, job_id: str) -> Union[ChatResponse, JobResponse, None]:
-        endpoint = f"/v1/chat/{job_id}"
-        response = self._get(endpoint)
-        return self._validate_response(response, Union[ChatResponse, JobResponse])
+    async def list_worker_configurations(self) -> WorkerConfigs:
+        """
+        Lists the available worker configurations.
 
-    # Embeddings Generation Routes
-    def generate_embeddings(self, request_data: EmbeddingsRequest, async_key: Optional[str] = None,
-                            keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None, 
-                            priority_key: Optional[str] = None) -> Union[EmbeddingsResponse, JobResponse, None]:
-        headers = {
-            "x-smi-async": async_key,
-            "x-smi-keep-alive": str(keep_alive_key) if keep_alive_key else None,
-            "x-smi-storage": storage_key,
-            "x-smi-priority": priority_key
-        }
-        data = request_data.dict()
-        response = self._post("/v1/embeddings", data, headers)
-        return self._validate_response(response, Union[EmbeddingsResponse, JobResponse])
+        :return: WorkerConfigs
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{API_URL}/v1/workers/list", headers=self.headers)
+            response.raise_for_status()
+            return WorkerConfigs.model_validate(response.json())
 
-    # Speech-to-Text Routes
-    def speech_to_text(self, request_data: SpeechToTextRequest, async_key: Optional[str] = None,
-                       keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None, 
-                       priority_key: Optional[str] = None) -> Union[SpeechToTextResponse, JobResponse, None]:
-        headers = {
-            "x-smi-async": async_key,
-            "x-smi-keep-alive": str(keep_alive_key) if keep_alive_key else None,
-            "x-smi-storage": storage_key,
-            "x-smi-priority": priority_key
-        }
-        data = request_data.dict()
-        response = self._post("/v1/speech-to-text", data, headers)
-        return self._validate_response(response, Union[SpeechToTextResponse, JobResponse])
+    async def get_gpu_infos(self) -> Union[GPUsInfo, FunctionCallError]:
+        """
+        Retrieves information about the GPUs.
 
-    def text_to_speech(self, request_data: TextToSpeechRequest, async_key: Optional[str] = None,
-                       keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None, 
-                       priority_key: Optional[str] = None) -> Union[TextToSpeechResponse, JobResponse, None]:
-        headers = {
-            "x-smi-async": async_key,
-            "x-smi-keep-alive": str(keep_alive_key) if keep_alive_key else None,
-            "x-smi-storage": storage_key,
-            "x-smi-priority": priority_key
-        }
-        data = request_data.dict()
-        response = self._post("/v1/text-to-speech", data, headers)
-        return self._validate_response(response, Union[TextToSpeechResponse, JobResponse])
+        :return: GPUsInfo or FunctionCallError
+        """
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{API_URL}/v1/gpu/info", headers=self.headers)
+            response.raise_for_status()
+            return GPUsInfo.model_validate(response.json())
 
-    # List Engines and GPU Info Routes
-    def list_engines(self) -> Union[EnginesList, None]:
-        response = self._get("/v1/engines/list")
-        return self._validate_response(response, EnginesList)
+    async def text_to_text(self, request_data: ChatRequest, worker_id: str, async_key: Optional[str] = None,
+                           keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None,
+                           priority_key: Optional[str] = None) -> Union[JobResponse, ChatResponse]:
+        """
+        Generates text from text using the specified worker.
 
-    def gpu_infos(self) -> Union[GPUsInfo, None]:
-        response = self._get("/v1/gpu/info")
-        return self._validate_response(response, GPUsInfo)
+        :param request_data: Request data for text to text conversion
+        :param worker_id: Worker ID to handle the request
+        :param async_key: Optional async key for asynchronous processing
+        :param keep_alive_key: Optional keep-alive duration
+        :param storage_key: Optional storage key (local or S3)
+        :param priority_key: Optional priority key (low, normal, high)
+        :return: ChatResponse or JobResponse
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if async_key:
+                headers["x-smi-async"] = async_key
+            if keep_alive_key is not None:
+                headers["x-smi-keep-alive"] = str(keep_alive_key)
+            if storage_key:
+                headers["x-smi-storage"] = storage_key
+            if priority_key:
+                headers["x-smi-priority"] = priority_key
 
-# Utilisation de la classe
-client = SMIClient(base_url="http://your-api-url.com", api_key="your-api-key")
+            response = await client.post(
+                f"{API_URL}/v1/text-to-text",
+                headers=headers,
+                json=request_data.model_dump(),
+                params={"worker_id": worker_id}
+            )
+            response.raise_for_status()
+            if async_key:
+                return JobResponse.model_validate(response.json())
+            return ChatResponse.model_validate(response.json())
 
-# Exemple d'appel
-try:
-    request_data = TextToImageRequest(model="your-model-id", prompt="Describe your image here")
-    response = client.text_to_image(request_data, async_key="true", keep_alive_key=300, storage_key="S3", priority_key="high")
-    print(response)
-except ValidationError as e:
-    print("Error while creating TextToImageRequest:", e.json())
+    async def image_to_text(self, request_data: ChatRequest, worker_id: str, async_key: Optional[str] = None,
+                            keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None,
+                            priority_key: Optional[str] = None) -> Union[JobResponse, ChatResponse]:
+        """
+        Generates text from an image using the specified worker.
+
+        :param request_data: Request data for image to text conversion
+        :param worker_id: Worker ID to handle the request
+        :param async_key: Optional async key for asynchronous processing
+        :param keep_alive_key: Optional keep-alive duration
+        :param storage_key: Optional storage key (local or S3)
+        :param priority_key: Optional priority key (low, normal, high)
+        :return: ChatResponse or JobResponse
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if async_key:
+                headers["x-smi-async"] = async_key
+            if keep_alive_key is not None:
+                headers["x-smi-keep-alive"] = str(keep_alive_key)
+            if storage_key:
+                headers["x-smi-storage"] = storage_key
+            if priority_key:
+                headers["x-smi-priority"] = priority_key
+
+            response = await client.post(
+                f"{API_URL}/v1/image-to-text",
+                headers=headers,
+                json=request_data.model_dump(),
+                params={"worker_id": worker_id}
+            )
+            response.raise_for_status()
+            if async_key:
+                return JobResponse.model_validate(response.json())
+            return ChatResponse.model_validate(response.json())
+
+    async def get_text_to_text(self, job_id: str, accept: Optional[str] = None) -> Union[JobResponse, ChatResponse]:
+        """
+        Retrieves the result of a text to text job.
+
+        :param job_id: Job ID to retrieve
+        :param accept: Optional accept header to specify response format
+        :return: JobResponse or ChatResponse
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if accept:
+                headers["accept"] = accept
+
+            response = await client.get(f"{API_URL}/v1/text-to-text/{job_id}", headers=headers)
+            response.raise_for_status()
+            return ChatResponse.model_validate(response.json())
+
+    async def text_to_embeddings(self, request_data: EmbeddingsRequest, worker_id: str, async_key: Optional[str] = None,
+                                 keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None,
+                                 priority_key: Optional[str] = None) -> Union[JobResponse, EmbeddingsResponse]:
+        """
+        Generates embeddings from text using the specified worker.
+
+        :param request_data: Request data for text to embeddings conversion
+        :param worker_id: Worker ID to handle the request
+        :param async_key: Optional async key for asynchronous processing
+        :param keep_alive_key: Optional keep-alive duration
+        :param storage_key: Optional storage key (local or S3)
+        :param priority_key: Optional priority key (low, normal, high)
+        :return: EmbeddingsResponse or JobResponse
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if async_key:
+                headers["x-smi-async"] = async_key
+            if keep_alive_key is not None:
+                headers["x-smi-keep-alive"] = str(keep_alive_key)
+            if storage_key:
+                headers["x-smi-storage"] = storage_key
+            if priority_key:
+                headers["x-smi-priority"] = priority_key
+
+            response = await client.post(
+                f"{API_URL}/v1/text-to-embeddings",
+                headers=headers,
+                json=request_data.model_dump(),
+                params={"worker_id": worker_id}
+            )
+            response.raise_for_status()
+            if async_key:
+                return JobResponse.model_validate(response.json())
+            return EmbeddingsResponse.model_validate(response.json())
+
+    async def speech_to_text(self, file_path: str, worker_id: str, language: Optional[str] = None,
+                             temperature: Optional[float] = 0.0, prompt: Optional[str] = None,
+                             keep_alive: Optional[str] = None, async_key: Optional[str] = None,
+                             keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None,
+                             priority_key: Optional[str] = None) -> Union[JobResponse, SpeechToTextResponse]:
+        """
+        Converts speech to text using the specified worker.
+
+        :param file_path: Path to the audio file
+        :param worker_id: Worker ID to handle the request
+        :param language: Optional language code
+        :param temperature: Optional temperature setting
+        :param prompt: Optional prompt
+        :param keep_alive: Optional keep-alive setting
+        :param async_key: Optional async key for asynchronous processing
+        :param keep_alive_key: Optional keep-alive duration
+        :param storage_key: Optional storage key (local or S3)
+        :param priority_key: Optional priority key (low, normal, high)
+        :return: SpeechToTextResponse or JobResponse
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if async_key:
+                headers["x-smi-async"] = async_key
+            if keep_alive_key is not None:
+                headers["x-smi-keep-alive"] = str(keep_alive_key)
+            if storage_key:
+                headers["x-smi-storage"] = storage_key
+            if priority_key:
+                headers["x-smi-priority"] = priority_key
+
+            files = {'file': open(file_path, 'rb')}
+            data = {
+                "worker_id": worker_id,
+                "language": language,
+                "temperature": temperature,
+                "prompt": prompt,
+                "keep_alive": keep_alive,
+            }
+
+            response = await client.post(
+                f"{API_URL}/v1/speech-to-text",
+                headers=headers,
+                files=files,
+                data=data
+            )
+            response.raise_for_status()
+            if async_key:
+                return JobResponse.model_validate(response.json())
+            return SpeechToTextResponse.model_validate(response.json())
+
+    async def text_to_speech(self, request_data: TextToSpeechRequest, worker_id: str, async_key: Optional[str] = None,
+                             keep_alive_key: Optional[int] = None, storage_key: Optional[str] = None,
+                             priority_key: Optional[str] = None, accept: Optional[str] = None) -> Union[JobResponse, TextToSpeechResponse, bytes]:
+        """
+        Converts text to speech using the specified worker.
+
+        :param request_data: Request data for text to speech conversion
+        :param worker_id: Worker ID to handle the request
+        :param async_key: Optional async key for asynchronous processing
+        :param keep_alive_key: Optional keep-alive duration
+        :param storage_key: Optional storage key (local or S3)
+        :param priority_key: Optional priority key (low, normal, high)
+        :param accept: Optional accept header to specify response format
+        :return: TextToSpeechResponse, JobResponse, or bytes (audio data)
+        """
+        async with httpx.AsyncClient() as client:
+            headers = self.headers.copy()
+            if async_key:
+                headers["x-smi-async"] = async_key
+            if keep_alive_key is not None:
+                headers["x-smi-keep-alive"] = str(keep_alive_key)
+            if storage_key:
+                headers["x-smi-storage"] = storage_key
+            if priority_key:
+                headers["x-smi-priority"] = priority_key
+            if accept:
+                headers["accept"] = accept
+
+            response = await client.post(
+                f"{API_URL}/v1/text-to-speech",
+                headers=headers,
+                json=request_data.model_dump(),
+                params={"worker_id": worker_id}
+            )
+            response.raise_for_status()
+            if accept == "audio/wav":
+                return response.content
+            if async_key:
+                return JobResponse.model_validate(response.json())
+            return TextToSpeechResponse.model_validate(response.json())
+
+    async def speech_to_text(self, worker_id: str, timeout: int = 30, language:str="fr", rate:int = 48000, channels:int = 1) -> websockets.WebSocketClientProtocol:
+        """
+        Connects to the WebSocket and streams audio data for speech-to-text conversion.
+
+        :param worker_id: Worker ID to handle the request
+        :param file_path: Path to the audio file
+        :param timeout: Timeout duration for the WebSocket connection
+        :param callback: Optional callback function to handle each received JSON packet
+        :return: AsyncGenerator yielding JSON responses
+        """
+        ws = await websockets.connect(f"ws://localhost:8999/ws/v1/speech-to-text?worker_id={worker_id}&timeout={timeout}", extra_headers={"x-smi-key": self.api_key})
+        #ws.send(json.dumps({"language": language, "rate": rate, "channels": channels}).encode("utf-8"))
+        return ws
+
+async def check_routes():
+    client = SMIClient(api_key="s78d8z6sdx-d058-4dd4-9c93-24761122aec5")
+    response = await client.list_worker_configurations()
+
+    stream = await client.speech_to_text(worker_id="FasterWhisperLarge", language="fr")
+    audio_data = load_audio("../jfk.flac")
+    #audio_data = load_audio("../test.wav")
+
+    audio_bytes = audio_data.tobytes()
+
+    chunk_size = 16384 * 5
+    for i in range(0, len(audio_bytes), chunk_size):
+        chunk = audio_bytes[i:i + chunk_size]
+        await stream.send(chunk)
+        response = await stream.recv()
+        print(response)
+        
+# Example usage:
+if __name__ == "__main__":
+    client = SMIClient(api_key="s78d8z6sdx-d058-4dd4-9c93-24761122aec5")
+
+    # Example call to a method
+    asyncio.run(check_routes())
+
+    # For the websocket
+    #async def process_websocket():
+    #    async for response in client.connect_websocket(worker_id="your_worker_id", file_path="path/to/your/file.wav"):
+    #        print(response)
+
+    #asyncio.run(process_websocket())

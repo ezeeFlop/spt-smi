@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional
 from spt.utils import find_free_port
 
 class Service:
-    def __init__(self, servicer: GenericServiceServicer, max_run_time: int = 600) -> None:
+    def __init__(self, servicer: GenericServiceServicer, max_run_time: int = 500) -> None:
         self.servicer: GenericServiceServicer = servicer
         self.storage_type: Optional[str] = None
         self.keep_alive: int = 15
@@ -36,6 +36,8 @@ class Service:
                 worker.stop()
                 worker.cleanup()
                 del self.instances[key]
+            else:
+                self.logger.info(f"Worker {key} is still alive for {worker.get_duration()} seconds")
 
     def cleanup(self):
         self.logger.info(f"Service Cleanup {self.keep_alive} minutes left")

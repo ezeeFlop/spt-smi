@@ -33,7 +33,7 @@
     },
     "FasterWhisperLarge": {
         "description": "Faster Whisper Large",
-        "model": "Systran/faster-distil-whisper-large-v3",
+        "model": "large-v3",
         "worker": "spt.workers.faster_whisper.FasterWhisper",
         "type": "STT",
         "request_model": "spt.models.audio.SpeechToTextRequest",
