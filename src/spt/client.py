@@ -13,6 +13,12 @@ from spt.models.remotecalls import GPUsInfo, FunctionCallError
 from spt.workers.utils.audio import load_audio
 
 API_URL = "http://localhost:8999"  # Replace with your API URL
+WS_API_URL = "ws://localhost:8999"  # Replace with your API URL
+
+API_URL = "https://smi-api.sponge-theory.dev"  # Replace with your API URL
+WS_API_URL = "wss://smi-api.sponge-theory.dev"  # Replace with your API URL
+
+
 
 class SMIClient:
     def __init__(self, api_key: str):
@@ -330,7 +336,7 @@ class SMIClient:
         :param callback: Optional callback function to handle each received JSON packet
         :return: AsyncGenerator yielding JSON responses
         """
-        ws = await websockets.connect(f"ws://localhost:8999/ws/v1/speech-to-text?worker_id={worker_id}&timeout={timeout}", extra_headers={"x-smi-key": self.api_key})
+        ws = await websockets.connect(f"{WS_API_URL}/ws/v1/speech-to-text?worker_id={worker_id}&timeout={timeout}", extra_headers={"x-smi-key": self.api_key})
         #ws.send(json.dumps({"language": language, "rate": rate, "channels": channels}).encode("utf-8"))
         return ws
 

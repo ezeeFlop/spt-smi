@@ -59,7 +59,4 @@ zmq
 wsproto
 resampy
 pydub
-mosestokenizer
-ffmpeg
-wtpsplit
 soundfile

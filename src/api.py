@@ -328,7 +328,7 @@ async def speech_to_text_stream(websocket: WebSocket,
                                         outtype=WorkerStreamType.json,
                                         ip_address=ip_address,
                                         hostname=hostname,
-                                        port=find_free_port()+1,
+                                        port=find_free_port(),
                                         timeout=timeout)
     
     job = await Jobs.create_job(payload=request.model_dump_json(),
