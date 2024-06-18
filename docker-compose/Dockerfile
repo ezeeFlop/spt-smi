@@ -1,5 +1,5 @@
 # Étape 1: Utiliser une image de base NVIDIA qui supporte Ubuntu 22.04
-FROM nvidia/cuda:12.2.0-base-ubuntu22.04
+FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
 
 # Définir l'argument de version de Python pour faciliter les mises à jour
 ARG PYTHON_VERSION=3.11
