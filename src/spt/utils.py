@@ -13,14 +13,17 @@ import docker
 
 def get_container_ip(network_name):
     try:
-        client = docker.from_env()
+        client = docker.DockerClient(base_url='unix://var/run/docker.sock')
         container = client.containers.get(socket.gethostname())
         ip_address = container.attrs['NetworkSettings']['Networks'][network_name]['IPAddress']
         return ip_address
-    except docker.errors.NotFound:
-        # Handle the case where the script is not running inside a Docker container
+    except docker.errors.DockerException as e:
+        print(f"Docker exception: {e}")
         return None
-
+    except KeyError:
+        # This will catch if the network_name is not found in the Networks dictionary
+        return None
+    
 def get_host_ip():
     hostname = socket.gethostname()
     ip_address = socket.gethostbyname(hostname)
