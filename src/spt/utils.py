@@ -5,10 +5,32 @@ import os
 import json
 import tempfile
 import logging
-from config import TEMP_PATH, STREAMING_PORTS_RANGE
+from config import TEMP_PATH, STREAMING_PORTS_RANGE, SERVICES_NETWORK
 import socket
 logger = logging.getLogger(__name__)
+import socket
+import docker
 
+def get_container_ip(network_name):
+    try:
+        client = docker.from_env()
+        container = client.containers.get(socket.gethostname())
+        ip_address = container.attrs['NetworkSettings']['Networks'][network_name]['IPAddress']
+        return ip_address
+    except docker.errors.NotFound:
+        # Handle the case where the script is not running inside a Docker container
+        return None
+
+def get_host_ip():
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    return ip_address
+
+def get_ip(network:str = SERVICES_NETWORK) -> str:
+    container_ip = get_container_ip(network)
+    if container_ip:
+        return container_ip
+    return get_host_ip()
 
 def find_free_port() -> int:
     """
@@ -35,7 +57,6 @@ def find_free_port() -> int:
             except OSError:
                 continue
     raise RuntimeError(f"No free port found in range {start_port}-{end_port}")
-
 
 def load_json(file, dir="./"):
     jsonFile = os.path.join(dir, f"{file}.json")

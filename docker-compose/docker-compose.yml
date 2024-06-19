@@ -10,6 +10,7 @@ services:
     networks:
       - webfacing
       - dbs
+      - servicesworkers
     depends_on:
       - redis
       - rabbitmq

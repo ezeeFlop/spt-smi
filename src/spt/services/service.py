@@ -11,7 +11,7 @@ from pydantic import BaseModel, ValidationError
 import importlib
 import logging
 from typing import Dict, Any, Optional, List
-from spt.utils import find_free_port
+from spt.utils import find_free_port, get_ip
 
 class Service:
     def __init__(self, servicer: GenericServiceServicer) -> None:
@@ -100,7 +100,7 @@ class Service:
             self.logger.info(f"Hostname: {hostname}")
 
             # Get the IP address associated with the hostname
-            ip_address = socket.gethostbyname(hostname)
+            ip_address = get_ip()
             
             # Retrieve the worker instance associated with the requested model
             worker = await self.get_worker(request.worker_id)
@@ -108,7 +108,7 @@ class Service:
             # Find a free port for input
             input_port = find_free_port()
             
-            # Find a free port for output
+            # get request port for output
             output_port = request.port
 
             # Start the stream in the background using asyncio

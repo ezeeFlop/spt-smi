@@ -62,3 +62,7 @@ MINIO_FILE_DURATION = os.environ['MINIO_FILE_DURATION'] if os.environ.get(
 # Streaming ports ranges
 STREAMING_PORTS_RANGE = os.environ['STREAMING_PORTS_RANGE'] if os.environ.get(
     'STREAMING_PORTS_RANGE') else '10000-55000'
+
+# Service network name for interservice / api communication
+SERVICES_NETWORK = os.environ['SERVICES_NETWORK'] if os.environ.get(
+    'SERVICES_NETWORK') else "servicesworkers"
