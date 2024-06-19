@@ -31,7 +31,7 @@ from spt.utils import find_free_port
 console = Console()
 
 logging.basicConfig(
-    level="DEBUG",
+    level="INFO",
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     datefmt="[%X]",
     handlers=[RichHandler(
@@ -490,7 +490,7 @@ async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, respo
             while not stop_event.is_set():
                 try:
                     data = await asyncio.wait_for(input_ws_func(), timeout=request.timeout)
-                    logger.debug(f"receive_from_ws Received data from WebSocket: {data}")
+                    logger.info(f"receive_from_ws Received data from WebSocket: {data}")
                     await output_func(data)
                 except asyncio.TimeoutError:
                     logger.info("receive_from_ws WebSocket timed out due to inactivity")
@@ -520,7 +520,7 @@ async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, respo
                 socks = dict(await poller.poll(request.timeout * 1000))
                 if receiver in socks and socks[receiver] == zmq.POLLIN:
                     message = await input_func()
-                    logger.debug(f"send_to_ws Received message from ZeroMQ: {message}")
+                    logger.info(f"send_to_ws Received message from ZeroMQ: {message}")
                     await output_ws_func(message)
                 else:
                     logger.info(

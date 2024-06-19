@@ -28,7 +28,7 @@ class Service:
         self.logger = logger
 
     def check_workers(self):
-        self.logger.info(f"  [-] Service {len(self.instances)} Check Workers...")
+        self.logger.info(f"  [-] Service Check {len(self.instances)}# Workers...")
         for worker in self.instances[:]:  # Iterate over a copy of the list
             if worker.get_status() == WorkerState.idle:
                 self.logger.info(f"    [-] Garbaging worker idle {worker.id}")
