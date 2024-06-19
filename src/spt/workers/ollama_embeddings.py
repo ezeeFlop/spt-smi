@@ -8,8 +8,8 @@ import requests
 
 
 class OllamaEmbeddings(Worker):
-    def __init__(self, name: str, service: Service, model: str, logger):
-        super().__init__(name=name, service=service, model=model, logger=logger)
+    def __init__(self, id:str, name: str, service: Service, model: str, logger):
+        super().__init__(name=name, id=id, service=service, model=model, logger=logger)
         self.logger.info(f"Connecting to {OLLAMA_URL}")
         self.client = Client(host=OLLAMA_URL, timeout=500)
         self.models = []

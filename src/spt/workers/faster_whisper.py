@@ -44,7 +44,7 @@ class FasterWhisper(Worker):
         file = create_temp_file(request.file)
 
         self.model_instance = WhisperModel(
-            self.model, device=get_available_device(), compute_type="float16")
+            self.model)
 
         segments, info = self.model_instance.transcribe(
             file, beam_size=1)

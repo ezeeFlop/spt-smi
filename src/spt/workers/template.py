@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from typing import Union, Dict, Any
 
 class Template(Worker):
-    def __init__(self, name: str, service: Service, model: str, logger):
-        super().__init__(name=name, service=service, model=model, logger=logger)
+    def __init__(self, id:str, name: str, service: Service, model: str, logger):
+        super().__init__(id=id, name=name, service=service, model=model, logger=logger)
         self.my_model = None
 
     async def work(self, request: WorkerBaseRequest) -> BaseModel:

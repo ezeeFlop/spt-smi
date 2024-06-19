@@ -73,8 +73,8 @@ class StableDiffusion(Worker):
         self.logger.info("Claiming memory")
         self.cleanup()
 
-    def __init__(self, name: str, service: Service, model: str, logger):
-        super().__init__(name=name, service=service, model=model, logger=logger)
+    def __init__(self, id:str, name: str, service: Service, model: str, logger):
+        super().__init__(id=id, name=name, service=service, model=model, logger=logger)
         self.pipe = None
         self.num_inference_steps = 20
         self.generator = None

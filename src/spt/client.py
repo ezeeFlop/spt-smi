@@ -15,8 +15,8 @@ from spt.workers.utils.audio import load_audio
 API_URL = "http://localhost:8999"  # Replace with your API URL
 WS_API_URL = "ws://localhost:8999"  # Replace with your API URL
 
-API_URL = "https://smi-api.sponge-theory.dev"  # Replace with your API URL
-WS_API_URL = "wss://smi-api.sponge-theory.dev"  # Replace with your API URL
+#API_URL = "https://smi-api.sponge-theory.dev"  # Replace with your API URL
+#WS_API_URL = "wss://smi-api.sponge-theory.dev"  # Replace with your API URL
 
 
 
@@ -345,8 +345,8 @@ async def check_routes():
     response = await client.list_worker_configurations()
 
     stream = await client.speech_to_text(worker_id="FasterWhisperLarge", language="fr", timeout=50)
-    audio_data = load_audio("../jfk.flac")
-    #audio_data = load_audio("../test.wav")
+    #audio_data = load_audio("../jfk.flac")
+    audio_data = load_audio("../test.wav")
 
     audio_bytes = audio_data.tobytes()
 

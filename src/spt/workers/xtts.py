@@ -14,8 +14,8 @@ import io
 import wave
 
 class XTTS(Worker):
-    def __init__(self, name: str, service: Service, model: str, logger):
-        super().__init__(name=name, service=service, model=model, logger=logger)
+    def __init__(self, id:str, name: str, service: Service, model: str, logger):
+        super().__init__(id=id, name=name, service=service, model=model, logger=logger)
         self.tts_model = None
 
     def __del__(self):
