@@ -18,8 +18,8 @@ TARGET_CHANNELS = 1  # Target sample rate for the model
 
 class FasterWhisper(Worker):
 
-    def __init__(self, name: str, service: Service, model: str, logger):
-        super().__init__(name=name, service=service, model=model, logger=logger)
+    def __init__(self, id:str, name: str, service: Service, model: str, logger):
+        super().__init__(id=id, name=name, service=service, model=model, logger=logger)
         self.model_instance = None
         self.vad_detector = None
         self.original_language = None

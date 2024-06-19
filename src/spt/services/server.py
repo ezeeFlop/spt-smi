@@ -116,11 +116,11 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
     async def cleanup_expired_instances(self) -> None:
         """ Cleanup expired instances periodically """
         while True:
-            logger.info("  [*] Cleaning up expired instances...")
+            logger.info("  [*] Checking up expired instances...")
             current_time = asyncio.get_event_loop().time()
             expired_keys = [
                 key for key, (inst, exp) in self.instances.items() if exp < current_time]
-            logger.info(f"  [*] Found {len(expired_keys)} expired instances:")
+            logger.info(f"    [*] Found {len(expired_keys)} expired instances:")
             for key in expired_keys:
                 inst, _ = self.instances.pop(key)
                 logger.info(f"  [*] Cleaning up expired instance: {key}")
@@ -129,7 +129,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
 
             running_keys = [
                 key for key, (inst, exp) in self.instances.items() if exp > current_time]
-            logger.info(f"  [*] Found {len(running_keys)} running instances:")
+            logger.info(f"    [*] Found {len(running_keys)} running instances:")
 
             for key in running_keys:
                 inst, _ = self.instances[key]

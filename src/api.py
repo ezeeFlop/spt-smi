@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, Depends, Security, Request, Response
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import StreamingResponse
 from fastapi import WebSocket, WebSocketDisconnect
-from starlette.websockets import WebSocketState
 from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field
 from keys import API_KEY
@@ -32,7 +31,7 @@ from spt.utils import find_free_port
 console = Console()
 
 logging.basicConfig(
-    level="INFO",
+    level="DEBUG",
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     datefmt="[%X]",
     handlers=[RichHandler(
@@ -306,7 +305,7 @@ async def speech_to_text_stream(websocket: WebSocket,
   
     api_key = websocket.headers.get("x-smi-key")
     logger.info(
-        f"WebSocket connection attempt with API key: {api_key} and worker_id: {worker_id}")
+        f"WebSocket connection attempt worker_id: {worker_id}")
 
     if api_key != API_KEY:
         await websocket.close(code=1008, reason="API key invalid")
@@ -441,7 +440,6 @@ async def get_job_result(job: Job, async_key: str) -> Type[BaseModel] | JobRespo
             return JobResponse(id=job.id, status=status.status, type=status.type, message=status.message)
     raise HTTPException(status_code=408, detail="Job timeout")
 
-
 async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, response: WorkerStreamManageResponse):
     await websocket.accept()
 
@@ -485,68 +483,79 @@ async def stream(websocket: WebSocket, request: WorkerStreamManageRequest, respo
     input_ws_func = input_ws_funcs[request.intype]
     output_ws_func = output_ws_funcs[request.outtype]
 
+    stop_event: asyncio.Event = asyncio.Event()
+
     async def receive_from_ws():
         try:
-            while True:
+            while not stop_event.is_set():
                 try:
                     data = await asyncio.wait_for(input_ws_func(), timeout=request.timeout)
-                    logger.debug(f"Received data from WebSocket: {data}")
+                    logger.debug(f"receive_from_ws Received data from WebSocket: {data}")
                     await output_func(data)
                 except asyncio.TimeoutError:
-                    logger.info("WebSocket timed out due to inactivity")
+                    logger.info("receive_from_ws WebSocket timed out due to inactivity")
                     break
         except WebSocketDisconnect as e:
-            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
+            logger.info(f"receive_from_ws WebSocket disconnected: {e}")
         except asyncio.CancelledError:
             logger.info("Task receive_from_ws cancelled")
         except Exception as e:
-            logger.error(
-                f"Error in receive_from_ws: {e} {traceback.format_exc()}")
+            logger.error(f"receive_from_ws Error in receive_from_ws: {e} {traceback.format_exc()}")
         finally:
             try:
+                logger.info("receive_from_ws Closing ZeroMQ sockets, and terminating context")
+                stop_event.set()
                 receiver.close()
                 sender.close()
                 context.term()
-                if websocket.state == WebSocketState.CONNECTED:
+                if websocket.client_state != 3:  # 3 corresponds to WebSocketState.DISCONNECTED
+                    logger.info(f"receive_from_ws Closing WebSocket {websocket.client_state}")
                     await websocket.close()
             except Exception as e:
-                logger.error(
-                    f"Error during cleanup in receive_from_ws: {e} {traceback.format_exc()}")
+                logger.error(f"receive_from_ws Error during cleanup in receive_from_ws: {e} {traceback.format_exc()}")
 
     async def send_to_ws():
         try:
-            while True:
-                events = await poller.poll(timeout=1000)
-                if receiver in dict(events):
+            while not stop_event.is_set():
+                socks = dict(await poller.poll(request.timeout * 1000))
+                if receiver in socks and socks[receiver] == zmq.POLLIN:
                     message = await input_func()
-                    logger.debug(f"Received message from ZeroMQ: {message}")
+                    logger.debug(f"send_to_ws Received message from ZeroMQ: {message}")
                     await output_ws_func(message)
+                else:
+                    logger.info(
+                        "send_to_ws No activity detected, stopping the stream.")
+                    break
         except WebSocketDisconnect as e:
-            logger.info(f"WebSocket disconnected: {e.code} - {e.reason}")
+            logger.info(f"send_to_ws WebSocket disconnected: {e}")
         except asyncio.CancelledError:
             logger.info("Task send_to_ws cancelled")
         except Exception as e:
-            logger.error(f"Error in send_to_ws: {e} {traceback.format_exc()}")
+            logger.error(f"send_to_ws Error in send_to_ws: {e} {traceback.format_exc()}")
         finally:
             try:
+                logger.info("send_to_ws Closing ZeroMQ sockets, and terminating context")
+                stop_event.set()
                 receiver.close()
                 sender.close()
                 context.term()
-                if websocket.state == WebSocketState.CONNECTED:
-                    await websocket.close()
+                if websocket.client_state != 3:  # 3 corresponds to WebSocketState.DISCONNECTED
+                    logger.info(f"send_to_ws Closing WebSocket {websocket.client_state}")
+                    #await websocket.close()
             except Exception as e:
-                logger.error(
-                    f"Error during cleanup in send_to_ws: {e} {traceback.format_exc()}")
+                logger.error(f"send_to_ws Error during cleanup in send_to_ws: {e} {traceback.format_exc()}")
 
-    receive_task = asyncio.create_task(
-        receive_from_ws(), name="receive_from_ws")
+    receive_task = asyncio.create_task(receive_from_ws(), name="receive_from_ws")
     send_task = asyncio.create_task(send_to_ws(), name="send_to_ws")
 
     try:
         await asyncio.gather(send_task, receive_task)
     except asyncio.CancelledError:
-        logger.info("Main gather task cancelled")
+            logger.info("Main gather task cancelled")
     finally:
         receive_task.cancel()
         send_task.cancel()
-        await asyncio.gather(receive_task, send_task, return_exceptions=True)
+        try:
+            context.term()
+        except Exception as e:
+            logger.error(f"Error during final cleanup: {e} {traceback.format_exc()}")

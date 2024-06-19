@@ -10,47 +10,51 @@ import asyncio
 from pydantic import BaseModel, ValidationError
 import importlib
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from spt.utils import find_free_port
 
 class Service:
-    def __init__(self, servicer: GenericServiceServicer, max_run_time: int = 500) -> None:
+    def __init__(self, servicer: GenericServiceServicer) -> None:
         self.servicer: GenericServiceServicer = servicer
         self.storage_type: Optional[str] = None
         self.keep_alive: int = 15
         self.storage: Optional[Storage] = None
         self.workers: Dict[str, Worker] = {}
         self.worker_configs: WorkerConfig = WorkerConfigs.get_configs().workers_configs
-        self.max_run_time: int = max_run_time
-        self.instances: Dict[str, Worker] = {}
+        self.instances: List[Worker] = []
         self.logger: logging.Logger = None
     
     def set_logger(self, logger: logging.Logger):
         self.logger = logger
 
     def check_workers(self):
-        self.logger.info("Service Check Workers...")
-        for key, worker in list(self.instances.items()):
-            if worker.get_status() == WorkerState.working and worker.get_duration() > self.max_run_time:
-                self.logger.info(f"Stopping worker {key} due to long run time")
+        self.logger.info(f"  [-] Service {len(self.instances)} Check Workers...")
+        for worker in self.instances[:]:  # Iterate over a copy of the list
+            if worker.get_status() == WorkerState.idle:
+                self.logger.info(f"    [-] Garbaging worker idle {worker.id}")
                 worker.stop()
                 worker.cleanup()
-                del self.instances[key]
+                self.instances.remove(worker)
             else:
-                self.logger.info(f"Worker {key} is still alive for {worker.get_duration()} seconds")
+                self.logger.info(f"    [-] Worker {worker.id} with status {worker.get_status()} is still alive since {worker.get_duration()} seconds")
+                if worker.get_duration() > self.keep_alive * 60:
+                    self.logger.info(f"    [-] Stopping worker {worker.id} due to long run time")
+                    worker.stop()
+                    worker.cleanup()
+                    self.instances.remove(worker)
 
     def cleanup(self):
-        self.logger.info(f"Service Cleanup {self.keep_alive} minutes left")
-        for key, worker in list(self.instances.items()):
+        self.logger.info(f"  [-] Service Cleanup {self.keep_alive} minutes left")
+        for worker in self.instances[:]:  # Iterate over a copy of the list
             if worker.get_status() == WorkerState.idle:
-                self.logger.info(f"Cleaning up IDLE worker: {key}")
+                self.logger.info(f"    [-] Cleaning up IDLE worker: {worker.id}")
                 worker.cleanup()
-                del self.instances[key]
-            elif worker.get_duration() > self.max_run_time and (worker.get_status() == WorkerState.working or worker.get_status() == WorkerState.streaming):
-                self.logger.info(f"Stopping worker {key} due to long run time")
+                self.instances.remove(worker)
+            elif worker.get_status() == WorkerState.working or worker.get_status() == WorkerState.streaming:
+                self.logger.info(f"    [-] Stopping worker {worker.id} due to long run time")
                 worker.stop()
                 worker.cleanup()
-                del self.instances[key]
+                self.instances.remove(worker)
 
     def chunked_request(self, request: Any):
         self.logger.info(f"Chunked request: {request}")
@@ -59,27 +63,29 @@ class Service:
         try:
             if (worker_id not in self.worker_configs):
                 raise ValueError(
-                    f'Worker class for model {worker_id} not found')
+                    f'  [-] Worker class for model {worker_id} not found')
 
             worker_info:WorkerConfig = self.worker_configs[worker_id]
 
             # Check if an instance already exists and is IDLE
-            if (worker_id in self.instances):
-                worker_instance = self.instances[worker_id]
-                if worker_instance.get_status() == WorkerState.idle:
-                    return worker_instance
+            for worker in self.instances:
+                if worker.get_status() == WorkerState.idle and worker.id == worker_id:
+                    self.logger.info(f"  [-] Reusing worker {worker_id}")
+                    worker.stop()
+                    return worker
 
             module_path, class_name = worker_info.worker.rsplit('.', 1)
             module = importlib.import_module(module_path)
             worker_class = getattr(module, class_name)
-
-            worker = worker_class(
+            self.logger.info(f"  [-] Creating new worker {worker_id}")
+            worker = worker_class(id=worker_id,
                 name=class_name, service=self, model=worker_info.model, logger=self.logger)
-            self.instances[worker_id] = worker
+            self.instances.append(worker)
+
             return worker
 
         except Exception as e:
-            self.logger.error(f"Error in get_worker: {e}")
+            self.logger.error(f"  [-] Error in get_worker: {e}")
             raise
 
     async def work(self, request: WorkerBaseRequest) -> BaseModel:
@@ -91,7 +97,8 @@ class Service:
     async def stream(self, request: WorkerStreamManageRequest) -> WorkerStreamManageResponse:
             # Get the hostname of the current machine
             hostname = socket.gethostname()
-            
+            self.logger.info(f"Hostname: {hostname}")
+
             # Get the IP address associated with the hostname
             ip_address = socket.gethostbyname(hostname)
             
@@ -138,7 +145,7 @@ class Service:
 
     def decrease_keep_alive(self):
         self.keep_alive -= 1
-        self.logger.info(f"Keep alive decreased to {self.keep_alive}")
+        self.logger.info(f"[-] Keep alive decreased to {self.keep_alive}")
 
     def get_keep_alive(self) -> int:
         return self.keep_alive

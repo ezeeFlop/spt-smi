@@ -10,7 +10,7 @@ import traceback
 
 class Worker:
     # type: ignore
-    def __init__(self, name: str = "Worker", service: 'Service' = None, logger: logging.Logger = None, model: Optional[str] = None):
+    def __init__(self, id:str= "", name: str = "Worker", service: 'Service' = None, logger: logging.Logger = None, model: Optional[str] = None):
         self.name: str = name
         self.service: Optional['Service'] = service
         self.logger: logging.Logger = logger
@@ -20,6 +20,7 @@ class Worker:
         self.context: Context = Context()  # Utilisation de zmq.asyncio.Context
         self.stop_event: asyncio.Event = asyncio.Event()
         self.stream_task: Optional[asyncio.Task] = None
+        self.id = id
 
     def set_service(self, service: 'Service'):
         self.service = service
@@ -47,7 +48,7 @@ class Worker:
         receiver.connect(f"tcp://{ip}:{output_port}")
 
         self.logger.info(
-            f"Worker {self.name} Listening data on port {input_port} and sending to port {output_port} on {ip} with timeout {timeout} and input type {intype} and output type {outtype}")
+            f"[+] Worker {self.name} Listening data on port {input_port} and sending to port {output_port} on {ip} with timeout {timeout} and input type {intype} and output type {outtype}")
 
         poller = Poller()
         poller.register(receiver, zmq.POLLIN)
@@ -76,15 +77,15 @@ class Worker:
                     await output_func(await self.stream(message))
                 else:
                     self.logger.info(
-                        "No activity detected, stopping the stream.")
+                        "[+] No activity detected, stopping the stream.")
                     break
         except zmq.error.ZMQError as zmq_error:
-            self.logger.error(f"ZeroMQ error in stream: {str(zmq_error)} {traceback.format_exc()}")
+            self.logger.error(f"[+] ZeroMQ error in stream: {str(zmq_error)} {traceback.format_exc()}")
         except Exception as e:
             self.logger.error(
-                f"Error in stream: {str(e)} {traceback.format_exc()}")
+                f"[+] Error in stream: {str(e)} {traceback.format_exc()}")
         finally:
-            self.logger.info("Stream stopped")
+            self.logger.info("[+] Stream stopped")
             receiver.close()
             sender.close()
             self.context.term()
