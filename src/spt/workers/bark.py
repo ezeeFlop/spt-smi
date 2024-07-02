@@ -1,3 +1,4 @@
+from IPython.display import Audio
 from spt.models.audio import TextToSpeechRequest, TextToSpeechResponse, TextToSpeechSpeakerRequest
 from spt.services.service import Service, Worker
 from spt.services.service import GenericServiceServicer
@@ -31,9 +32,11 @@ class Bark(Worker):
 
     def load_model(self, model_name: str):
         self.logger.info("Loading Bark models")
+        device = get_available_device()
 
         self.processor = AutoProcessor.from_pretrained(model_name)
-        self.tts_model = BarkModel.from_pretrained(model_name)
+        self.tts_model = BarkModel.from_pretrained(
+            model_name).to("cpu" if device == "mps" else device)
         self.logger.info("Bark Loaded.")
 
     async def work(self, request: TextToSpeechRequest) -> TextToSpeechResponse:
@@ -42,9 +45,10 @@ class Bark(Worker):
         self.logger.info(f"Text To Speech model {self.model}")
         if self.tts_model is None:
             self.load_model(model_name=self.model)
+        device = get_available_device()
 
         voice_preset = request.speaker_id
-        inputs = self.processor(request.text, voice_preset=voice_preset)
+        inputs = self.processor(request.text, voice_preset=voice_preset, return_tensors="pt").to("cpu" if device == "mps" else device)
         audio_array = self.tts_model.generate(**inputs)
 
         wav = self.postprocess(audio_array)
