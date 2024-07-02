@@ -1,4 +1,3 @@
-from IPython.display import Audio
 from spt.models.audio import TextToSpeechRequest, TextToSpeechResponse, TextToSpeechSpeakerRequest
 from spt.services.service import Service, Worker
 from spt.services.service import GenericServiceServicer
