@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libffi-dev \
     wget \
+    git \
     python3-venv python3-dev \
     ffmpeg \
     tesseract-ocr \
