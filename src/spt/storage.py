@@ -9,6 +9,7 @@ import base64
 import io
 from typing import Optional
 from datetime import datetime, timedelta
+import unicodedata
 
 console = Console()
 
@@ -242,6 +243,43 @@ class Storage:
         return sanitized
 
     def sanitize_filename(self, input_name: str, file_extension: str = None) -> str:
+        # MinIO object names can be up to 1024 bytes long
+        max_length = 1024
+
+        # Normalize unicode characters
+        sanitized = unicodedata.normalize('NFKD', input_name).encode(
+            'ASCII', 'ignore').decode('ASCII')
+
+        # Remove or replace characters that are problematic for filenames
+        sanitized = re.sub(r'[\\/*?:"<>|]', '', sanitized)
+        # Replace whitespace with underscore
+        sanitized = re.sub(r'[\s]+', '_', sanitized)
+
+        # Remove any non-ASCII characters that might have survived
+        sanitized = re.sub(r'[^\x00-\x7F]+', '', sanitized)
+
+        # Remove leading and trailing periods, spaces, and underscores
+        sanitized = sanitized.strip('._')
+
+        # Ensure the name isn't empty
+        if not sanitized:
+            sanitized = 'default_filename'
+
+        # Truncate to a reasonable length before adding extension
+        max_base_length = 100  # Adjust this value as needed
+        sanitized = sanitized[:max_base_length]
+
+        # Add file extension if provided
+        if file_extension:
+            sanitized = f"{sanitized}.{file_extension}"
+
+        # Final truncation to max_length bytes
+        sanitized = sanitized.encode(
+            'utf-8')[:max_length].decode('utf-8', errors='ignore')
+
+        return sanitized
+
+    def sanitize_filename_old(self, input_name: str, file_extension: str = None) -> str:
         # Liste des noms de fichiers réservés sous Windows
         reserved_names = {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6",
                         "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"}
