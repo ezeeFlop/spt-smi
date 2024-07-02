@@ -28,6 +28,7 @@ class Bark(Worker):
             del self.processor
         torch.cuda.empty_cache()
 
+
     def load_model(self, model_name: str):
         self.logger.info("Loading Bark models")
 
