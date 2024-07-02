@@ -9,6 +9,14 @@ import os
 import io
 import wave
 from transformers import AutoProcessor, BarkModel
+from bark import generate_audio, SAMPLE_RATE
+import nltk  # we'll use this to split into sentences
+
+from bark.generation import (
+    generate_text_semantic,
+    preload_models,
+)
+from bark.api import semantic_to_waveform
 
 class Bark(Worker):
     def __init__(self, id:str, name: str, service: Service, model: str, logger):
@@ -47,10 +55,29 @@ class Bark(Worker):
         device = get_available_device()
 
         voice_preset = request.speaker_id
-        inputs = self.processor(request.text, voice_preset=voice_preset, return_tensors="pt").to("cpu" if device == "mps" else device)
-        audio_array = self.tts_model.generate(**inputs)
 
-        wav = self.postprocess(audio_array)
+
+        GEN_TEMP = 0.6
+        silence = np.zeros(int(0.25 * SAMPLE_RATE))  # quarter second of silence
+
+        sentences = nltk.sent_tokenize(request.text)
+        pieces = []
+        for sentence in sentences:
+            semantic_tokens = generate_text_semantic(
+                sentence,
+                history_prompt=voice_preset,
+                temp=GEN_TEMP,
+                min_eos_p=0.05,  # this controls how likely the generation is to end
+            )
+
+            audio_array = semantic_to_waveform(
+                semantic_tokens, history_prompt=voice_preset,)
+            pieces += [audio_array, silence.copy()]
+
+        #inputs = self.processor(request.text, voice_preset=voice_preset, return_tensors="pt").to("cpu" if device == "mps" else device)
+        #audio_array = self.tts_model.generate(**inputs)
+
+        wav = self.postprocess(pieces)
         wav_file = self.encode_audio_common(
             wav.tobytes(), encode_base64=False)
 
