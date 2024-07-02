@@ -4,7 +4,7 @@ from spt.models.workers import WorkerBaseRequest
 
 # Modèles pour l'endpoint Generate a completion
 
-class Options(BaseModel):
+class LLMOptions(BaseModel):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     top_k: Optional[int] = None
@@ -22,44 +22,17 @@ class Options(BaseModel):
     penalize_newline: Optional[bool] = None
     # Add more options here as needed
 
-class GenerateRequest(BaseModel):
-    model: str = Field(..., example="text-davinci-003")
-    prompt: str  = Field(..., example="Hello, World!")
-    images: Optional[List[str]] = None
-    format: Optional[str] = None
-    options: Optional[Options] = None
-    system: Optional[str] = None
-    template: Optional[str] = None
-    context: Optional[str] = None
-    stream: Optional[bool] = None
-    raw: Optional[bool] = None
-    
-class GenerateResponse(BaseModel):
-    model: str = Field(..., example="text-davinci-003")
-    created_at: str =  Field(..., example="2022-08-01T00:00:00Z")
-    response: str = Field(..., example="Hello, World!")
-    done: bool = Field(..., example=True)
-    context: Optional[List[int]] = None
-    total_duration: Optional[int] = None
-    load_duration: Optional[int] = None
-    prompt_eval_count: Optional[int] = None
-    prompt_eval_duration: Optional[int] = None
-    eval_count: Optional[int] = None
-    eval_duration: Optional[int] = None
-
 # Modèles pour l'endpoint Generate a chat completion
-
 
 class ChatMessage(BaseModel):
     role: str
     content: str
     images: Optional[List[str]] = None
 
-
 class ChatRequest(WorkerBaseRequest):
     messages: List[ChatMessage]
     format: Optional[str] = None
-    options: Optional[Options] = None
+    options: Optional[LLMOptions] = None
     stream: Optional[bool] = False
 
 class ChatResponse(BaseModel):
@@ -76,10 +49,9 @@ class ChatResponse(BaseModel):
 
 # Modèles pour l'endpoint Generate Embeddings
 
-
 class EmbeddingsRequest(WorkerBaseRequest):
     prompt: str
-    options: Optional[Options] = None
+    options: Optional[LLMOptions] = None
 
 class EmbeddingsResponse(BaseModel):
     embedding: List[float]

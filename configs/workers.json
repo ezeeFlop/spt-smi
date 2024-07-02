@@ -55,6 +55,14 @@
         "request_model": "spt.models.audio.TextToSpeechRequest",
         "response_model": "spt.models.audio.TextToSpeechResponse"
     },
+    "bark": {
+        "description": "Suno Bark",
+        "model": "suno/bark",
+        "worker": "spt.workers.bark.Bark",
+        "type": "TTS",
+        "request_model": "spt.models.audio.TextToSpeechRequest",
+        "response_model": "spt.models.audio.TextToSpeechResponse"
+    },
     "ollama_mistral": {
         "description": "Mistral with Olllama",
         "model": "mistral",

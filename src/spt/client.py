@@ -15,8 +15,8 @@ from spt.workers.utils.audio import load_audio
 API_URL = "http://localhost:8999"  # Replace with your API URL
 WS_API_URL = "ws://localhost:8999"  # Replace with your API URL
 
-#API_URL = "https://smi-api.sponge-theory.dev"  # Replace with your API URL
-#WS_API_URL = "wss://smi-api.sponge-theory.dev"  # Replace with your API URL
+API_URL = "https://smi-api.sponge-theory.dev"  # Replace with your API URL
+WS_API_URL = "wss://smi-api.sponge-theory.dev"  # Replace with your API URL
 
 
 

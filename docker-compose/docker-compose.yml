@@ -37,7 +37,7 @@ services:
       - /data/smi/prod/data:/data
       - /data/smi/prod/configs:/configs
       - /var/run/docker.sock:/var/run/docker.sock # Mount the Docker socket
-    command: "uvicorn api:app --reload --app-dir /home/spt/src --port 9999 --host 0.0.0.0"
+    command: "uvicorn spt.api.app:app --reload --app-dir /home/spt/src --port 9999 --host 0.0.0.0"
     deploy:
       replicas: 1
       placement:
