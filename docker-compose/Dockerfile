@@ -69,7 +69,7 @@ RUN python -m pip install --no-cache-dir . -c constraints.txt && \
 # Copier le code source et les modèles
 COPY --chown=spt src/ src/
 COPY --chown=spt models/ models/
-
+COPY --chown=spt models/nltk/ nltk_data
 # Exposer les ports nécessaires
 EXPOSE 8999 8501
 

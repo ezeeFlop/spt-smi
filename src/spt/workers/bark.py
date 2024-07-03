@@ -79,8 +79,9 @@ class Bark(Worker):
 
         #inputs = self.processor(request.text, voice_preset=voice_preset, return_tensors="pt").to("cpu" if device == "mps" else device)
         #audio_array = self.tts_model.generate(**inputs)
+        wav = np.concatenate(pieces)
 
-        wav = self.postprocess(pieces)
+        #wav = self.postprocess(pieces)
         wav_file = self.encode_audio_common(
             wav.tobytes(), encode_base64=False)
 
