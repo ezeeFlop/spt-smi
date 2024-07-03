@@ -85,7 +85,24 @@ def get_available_device():
         return torch.device('mps')
 
     if torch.cuda.is_available():
-        return torch.device('cuda')
+        # Get the number of available CUDA devices
+        device_count = torch.cuda.device_count()
+        
+        if device_count == 1:
+            return torch.device('cuda:0')
+        
+        # If there are multiple CUDA devices, find the one with the most free memory
+        max_free_memory = 0
+        best_device = 0
+        
+        for i in range(device_count):
+            torch.cuda.set_device(i)
+            free_memory = torch.cuda.memory_allocated(i)
+            if free_memory > max_free_memory:
+                max_free_memory = free_memory
+                best_device = i
+        
+        return torch.device(f'cuda:{best_device}')
     else:
         return torch.device('cpu')
 
