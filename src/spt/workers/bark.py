@@ -11,12 +11,15 @@ import wave
 from transformers import AutoProcessor, BarkModel
 from bark import generate_audio, SAMPLE_RATE
 import nltk  # we'll use this to split into sentences
+from config import NLTK_PATH
 
 from bark.generation import (
     generate_text_semantic,
     preload_models,
 )
 from bark.api import semantic_to_waveform
+
+os.environ["NLTK_DATA"] = NLTK_PATH
 
 class Bark(Worker):
     def __init__(self, id:str, name: str, service: Service, model: str, logger):
