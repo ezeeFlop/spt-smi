@@ -60,7 +60,7 @@ class Bark(Worker):
         GEN_TEMP = 0.6
         silence = np.zeros(int(0.25 * SAMPLE_RATE))  # quarter second of silence
 
-        sentences = nltk.sent_tokenize(request.text)
+        sentences = nltk.sent_tokenize(request.text, language="french")
         pieces = []
         for sentence in sentences:
             semantic_tokens = generate_text_semantic(
