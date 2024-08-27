@@ -46,6 +46,7 @@ class Flux(Worker):
                 pipe = FluxPipeline.from_pretrained(
                     self.model, torch_dtype=torch.bfloat16, device_map="balanced")
                 # save some VRAM by offloading the model to CPU. Remove this if you have enough GPU power
+                pipe.reset_device_map()
                 pipe.enable_model_cpu_offload()
                 self.num_inference_steps = 30
                 #pipe = pipe.to("cuda")
