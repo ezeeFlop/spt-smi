@@ -15,6 +15,14 @@
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
+    "fluxDev": {
+        "description": "Flux Dev",
+        "model": "black-forest-labs/FLUX.1-dev",
+        "worker": "spt.workers.flux.Flux",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
     "stable-diffusion-xl": {
         "description": "Realistic Vision",
         "model": "stabilityai/stable-diffusion-xl-base-1.0",
@@ -59,6 +67,14 @@
         "description": "Suno Bark",
         "model": "suno/bark",
         "worker": "spt.workers.bark.Bark",
+        "type": "TTS",
+        "request_model": "spt.models.audio.TextToSpeechRequest",
+        "response_model": "spt.models.audio.TextToSpeechResponse"
+    },
+    "piper": {
+        "description": "Piper Voice",
+        "model": "piper/fr/siwis/fr_FR-siwis-medium.onnx",
+        "worker": "spt.workers.piper.Piper",
         "type": "TTS",
         "request_model": "spt.models.audio.TextToSpeechRequest",
         "response_model": "spt.models.audio.TextToSpeechResponse"
