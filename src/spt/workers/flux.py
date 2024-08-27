@@ -44,7 +44,7 @@ class Flux(Worker):
                 torch.cuda.empty_cache()
 
                 pipe = FluxPipeline.from_pretrained(
-                    self.model, torch_dtype=torch.bfloat16, device_map="auto")
+                    self.model, torch_dtype=torch.bfloat16, device_map="balanced")
                 # save some VRAM by offloading the model to CPU. Remove this if you have enough GPU power
                 pipe.enable_model_cpu_offload()
                 self.num_inference_steps = 30
@@ -55,7 +55,7 @@ class Flux(Worker):
             else:
                 self.logger.info("CUDA is **not** available")
                 pipe = FluxPipeline.from_pretrained(
-                    self.model, torch_dtype=torch.bfloat16, device_map="auto")
+                    self.model, torch_dtype=torch.bfloat16, device_map="balanced")
                 # save some VRAM by offloading the model to CPU. Remove this if you have enough GPU power
                 pipe.enable_model_cpu_offload()
                 pipe = pipe.to("cpu")
