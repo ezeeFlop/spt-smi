@@ -68,3 +68,6 @@ STREAMING_PORTS_RANGE = os.environ['STREAMING_PORTS_RANGE'] if os.environ.get(
 # Service network name for interservice / api communication
 SERVICES_NETWORK = os.environ['SERVICES_NETWORK'] if os.environ.get(
     'SERVICES_NETWORK') else "servicesworkers"
+
+HF_TOKEN = os.environ['HF_TOKEN'] if os.environ.get(
+    'HF_TOKEN') else "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"

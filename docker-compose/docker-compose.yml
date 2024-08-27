@@ -142,6 +142,7 @@ services:
       - MINIO_SERVER_ENDPOINT=smi-minio.sponge-theory.dev
       - MINIO_ROOT_PASSWORD=Shes5z8pOv
       - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
+      - HF_TOKEN=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
     volumes:
       - /data/smi/prod/configs:/configs
       - /data/smi/prod/data:/data

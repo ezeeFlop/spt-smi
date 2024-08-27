@@ -23,6 +23,14 @@
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
+    "fluxSchnell": {
+        "description": "Flux Dev",
+        "model": "black-forest-labs/FLUX.1-schnell",
+        "worker": "spt.workers.flux.Flux",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
     "stable-diffusion-xl": {
         "description": "Realistic Vision",
         "model": "stabilityai/stable-diffusion-xl-base-1.0",
