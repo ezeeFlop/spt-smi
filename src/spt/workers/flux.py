@@ -51,7 +51,7 @@ class Flux(Worker):
                 self.num_inference_steps = 30
                 #pipe = pipe.to("cuda")
                 # pipe.enable_model_cpu_offload()
-                generator = torch.Generator(device='cuda:1')
+                generator = torch.Generator(device='cpu')
 
             else:
                 self.logger.info("CUDA is **not** available")
