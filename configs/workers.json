@@ -31,6 +31,14 @@
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
+    "fluxSchnellCpp": {
+        "description": "Flux Dev",
+        "model": "flux-schnell",
+        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
     "stable-diffusion-xl": {
         "description": "Realistic Vision",
         "model": "stabilityai/stable-diffusion-xl-base-1.0",
