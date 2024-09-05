@@ -1,7 +1,5 @@
 
-ARG UBUNTU_VERSION=22.04
-
-FROM ubuntu:$UBUNTU_VERSION AS build
+FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.0 AS build
 
 RUN apt-get update && apt-get install -y build-essential git cmake
 
@@ -9,7 +7,7 @@ WORKDIR /sd.cpp
 
 COPY stable-diffusion.cpp .
 
-RUN mkdir build && cd build && cmake .. && cmake --build . --config Release
+RUN mkdir build && cd build && cmake .. -DSD_CUBLAS=ON && cmake --build . --config Release
 
 # Étape 1: Utiliser une image de base NVIDIA qui supporte Ubuntu 22.04
 FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04 AS runtime
