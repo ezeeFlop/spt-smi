@@ -15,33 +15,33 @@
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
-    "fluxDev": {
-        "description": "Flux Dev",
-        "model": "black-forest-labs/FLUX.1-dev",
-        "worker": "spt.workers.flux.Flux",
-        "type": "IMAGE",
-        "request_model": "spt.models.image.TextToImageRequest",
-        "response_model": "spt.models.image.TextToImageResponse"
-    },
-    "fluxSchnell": {
-        "description": "Flux Dev",
-        "model": "black-forest-labs/FLUX.1-schnell",
-        "worker": "spt.workers.flux.Flux",
-        "type": "IMAGE",
-        "request_model": "spt.models.image.TextToImageRequest",
-        "response_model": "spt.models.image.TextToImageResponse"
-    },
     "fluxSchnellCpp": {
-        "description": "Flux Schnell",
-        "model": "flux1-schnell",
+        "description": "Flux Schnell Q3_K",
+        "model": "flux1-schnell-q3_k",
         "worker": "spt.workers.sdcpp.StableDiffusionCpp",
         "type": "IMAGE",
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
     "fluxDevCpp": {
-        "description": "Flux Dev",
-        "model": "flux1-dev",
+        "description": "Flux Dev Q3_K",
+        "model": "flux1-dev-q3_k",
+        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "fluxSchnellQ8Cpp": {
+        "description": "Flux Schnell Q8_0",
+        "model": "flux1-schnell-q8_0",
+        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "fluxDevQ8Cpp": {
+        "description": "Flux Dev Q8_0",
+        "model": "flux1-dev-q8_0",
         "worker": "spt.workers.sdcpp.StableDiffusionCpp",
         "type": "IMAGE",
         "request_model": "spt.models.image.TextToImageRequest",

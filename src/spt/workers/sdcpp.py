@@ -16,18 +16,30 @@ class StableDiffusionCpp(Worker):
         self.cache_dir = Path("/home/spt/.cache/flux")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.flux_files = {
-            "flux1-dev": {
+            "flux1-dev-q3_k": {
                 "flux1-dev-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q3_k.gguf",
                 "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
                 "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
                 "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
             },
-            "flux1-schnell": {
+            "flux1-schnell-q3_k": {
                 "flux1-schnell-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q3_k.gguf",
                 "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
                 "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
                 "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
-            }
+            },
+            "flux1-schnell-q8_0": {
+                "flux1-schnell-q8_0.gguf": "https://huggingface.co/leejet/FLUX.1-schnell-q8-gguf/resolve/main/flux1-schnell-q8_0.gguf",
+                "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
+                "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
+                "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
+            },
+            "flux1-dev-q8_0": {
+                "flux1-dev-q8_0.gguf": "https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q8_0.gguf",
+                "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
+                "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
+                "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
+            },
         }
 
     def download_file(self, url, filename):
@@ -68,7 +80,7 @@ class StableDiffusionCpp(Worker):
         for prompt in prompts:
             cmd = [
                 self.sd_binary_path,
-                "--diffusion-model", model_paths[f"{self.model}-q3_k.gguf"],
+                "--diffusion-model", model_paths[f"{self.model}.gguf"],
                 "--vae", model_paths["ae.safetensors"],
                 "--clip_l", model_paths["clip_l.safetensors"],
                 "--t5xxl", model_paths["t5xxl_fp16.safetensors"],
