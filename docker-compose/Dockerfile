@@ -1,5 +1,5 @@
 
-FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.0 AS build
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04 AS build
 
 RUN apt-get update && apt-get install -y build-essential git cmake
 

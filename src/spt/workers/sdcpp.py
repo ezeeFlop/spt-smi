@@ -77,7 +77,8 @@ class StableDiffusionCpp(Worker):
                 "--seed", str(seed),
                 "-o", "temp_output.png",
                 "--cfg-scale", "1.0",
-                "--sampling-method", "euler"
+                "--sampling-method", "euler",
+                "--lora-model-dir", self.cache_dir
             ]
 
             try:
