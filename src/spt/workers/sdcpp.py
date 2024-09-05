@@ -16,13 +16,13 @@ class StableDiffusionCpp(Worker):
         self.cache_dir = Path("/home/spt/.cache/flux")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.flux_files = {
-            "flux-dev": {
+            "flux1-dev": {
                 "flux1-dev-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q3_k.gguf",
                 "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
                 "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
                 "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
             },
-            "flux-schnell": {
+            "flux1-schnell": {
                 "flux1-schnell-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q3_k.gguf",
                 "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
                 "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
@@ -68,8 +68,8 @@ class StableDiffusionCpp(Worker):
         for prompt in prompts:
             cmd = [
                 self.sd_binary_path,
-                "--diffusion-model", model_paths[f"flux1-{self.model.split('-')[1]}.{'safetensors' if 'schnell' in self.model else 'gguf'}"],
-                "--vae", model_paths["ae.sft"],
+                "--diffusion-model", model_paths[f"{self.model}-q3_k.gguf"],
+                "--vae", model_paths["ae.safetensors"],
                 "--clip_l", model_paths["clip_l.safetensors"],
                 "--t5xxl", model_paths["t5xxl_fp16.safetensors"],
                 "-p", prompt.text,
