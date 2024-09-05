@@ -17,14 +17,14 @@ class StableDiffusionCpp(Worker):
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.flux_files = {
             "flux-dev": {
-                "flux1-dev-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q3_k.gguf",
-                "ae.sft": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
+                "flux1-dev-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q3_k.gguf",
+                "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
                 "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
                 "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
             },
             "flux-schnell": {
-                "flux1-schnell-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-schnell-gguf/blob/main/flux1-schnell-q3_k.gguf",
-                "ae.sft": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
+                "flux1-schnell-q3_k.gguf": "https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q3_k.gguf",
+                "ae.safetensors": "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
                 "clip_l.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
                 "t5xxl_fp16.safetensors": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors"
             }
