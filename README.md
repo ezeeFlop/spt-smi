@@ -1,6 +1,6 @@
 # spt-smi : Sponge Theory Scalable Models Inferences
 
-This framework allows for scalable model inference on various computational resources, with a focus on GPU utilization. It provides a flexible and efficient solution for running machine learning models, particularly in the domain of image generation and processing.
+This framework allows for scalable model inference on various computational resources, with a focus on GPU utilization. It provides a flexible and efficient solution for running machine learning models, particularly in the domain of image generation, text generation, text embedding, RAG...
 
 This framework allows you to work with sensitive company data in a very secure manner. It ensures that no data is sent to major LLM companies such as OpenAI, providing a safe environment for handling proprietary and confidential information. By keeping all data processing and model inference within your own infrastructure, you can maintain full control over your data privacy and security.
 
@@ -43,7 +43,7 @@ This framework is designed for researchers, developers, and organizations lookin
 
 ## Architecture
 
-![Architecture](./statics/SMI-architecture.jpg)
+![Architecture](./statics/SMI-Architecture.jpg)
 
 ## Set up
 
