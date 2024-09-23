@@ -97,3 +97,10 @@ docker push spongetheory/spt-smi:latest
 docker compose build
 docker compose up --build
 
+## Website and Contact Information
+
+For more information, please visit our website: [Sponge Theory](https://sponge-theory.ai).
+
+### Hire Me
+
+I am available for freelance work to help integrate this framework into your projects. If you are interested, please contact me at: christophe.verdier@sponge-theory.io
