@@ -1,4 +1,20 @@
 {
+    "stable-diffusion3-large-turbo": {
+        "description": "Stable Diffusion 3.5 Large Turbo",
+        "model": "stabilityai/stable-diffusion-3.5-large-turbo",
+        "worker": "spt.workers.stable_diffusion3.StableDiffusion3",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
+    "ltx": {
+        "description": "LTX Video",
+        "model": "ltx",
+        "worker": "spt.workers.ltx.LTX",
+        "type": "VIDEO",
+        "request_model": "spt.models.video.TextToVideoRequest",
+        "response_model": "spt.models.video.TextToVideoResponse"
+    },
     "realisticVision": {
         "description": "Realistic Vision",
         "model": "SG161222/Realistic_Vision_V3.0_VAE",
@@ -18,7 +34,7 @@
     "fluxSchnellCpp": {
         "description": "Flux Schnell Q3_K",
         "model": "flux1-schnell-q3_k",
-        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "worker": "spt.workers.flux_cpp.FluxCpp",
         "type": "IMAGE",
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
@@ -26,7 +42,7 @@
     "fluxDevCpp": {
         "description": "Flux Dev Q3_K",
         "model": "flux1-dev-q3_k",
-        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "worker": "spt.workers.flux_cpp.FluxCpp",
         "type": "IMAGE",
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
@@ -34,7 +50,7 @@
     "fluxSchnellQ8Cpp": {
         "description": "Flux Schnell Q8_0",
         "model": "flux1-schnell-q8_0",
-        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "worker": "spt.workers.flux_cpp.FluxCpp",
         "type": "IMAGE",
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
@@ -42,9 +58,9 @@
     "fluxDevQ8Cpp": {
         "description": "Flux Dev Q8_0",
         "model": "flux1-dev-q8_0",
-        "worker": "spt.workers.sdcpp.StableDiffusionCpp",
+        "worker": "spt.workers.flux_cpp.FluxCpp",
         "type": "IMAGE",
-        "request_model": "spt.models.image.TextToImageRequest",
+        "request_model": "spt.workers.flux_cpp.FluxCpp",
         "response_model": "spt.models.image.TextToImageResponse"
     },
     "stable-diffusion-xl": {

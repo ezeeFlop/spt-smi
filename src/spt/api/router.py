@@ -4,6 +4,7 @@ from fastapi.security.api_key import APIKeyHeader
 from keys import API_KEY
 from spt.models.jobs import JobsTypes, JobStatuses, JobResponse, JobPriority, JobStorage
 from spt.models.image import TextToImageRequest, TextToImageResponse 
+from spt.models.video import TextToVideoRequest, TextToVideoResponse
 from spt.models.workers import WorkerConfigs
 from spt.models.llm import ChatRequest, ChatResponse, EmbeddingsRequest, EmbeddingsResponse
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse, TextToSpeechRequest, TextToSpeechResponse
@@ -102,6 +103,29 @@ async def text_to_image(request_data: TextToImageRequest,
 async def text_to_image(job_id: str, request_data: TextToImageRequest, 
                         accept=Header(None), api_key: str = Depends(get_api_key)):
     return await controllers.text_to_image_job(job_id=job_id, accept=accept, api_key=api_key)
+
+@app.post("/v1/text-to-video", response_model=Union[JobResponse, TextToVideoResponse ], status_code=201, tags=["Text To Video Generation"])
+async def text_to_video(request_data: TextToVideoRequest, 
+                       accept=Header(None), 
+                        worker_id: str = Depends(validate_worker_exists),
+                       api_key: str = Depends(get_api_key), 
+                       async_key: str = Depends(get_async_key), 
+                       keep_alive_key: int = Depends(get_keep_alive_key), 
+                       storage_key: str = Depends(get_storage_key),
+                       priority_key: str = Depends(get_priority_key)):
+    return await controllers.text_to_video(request_data=request_data,
+                                            worker_id=worker_id, 
+                                            accept=accept, 
+                                            api_key=api_key,
+                                            async_key = async_key, 
+                                            keep_alive_key = keep_alive_key,
+                                            storage_key = storage_key, 
+                                            priority_key= priority_key)
+
+@app.get("/v1/text-to-video/{job_id}", response_model=Union[JobResponse, TextToVideoResponse], tags=["Text To Video Generation"])
+async def text_to_video(job_id: str, request_data: TextToVideoRequest, 
+                        accept=Header(None), api_key: str = Depends(get_api_key)):
+    return await controllers.text_to_video_job(job_id=job_id, accept=accept, api_key=api_key)
 
 @app.get("/v1/workers/list", response_model=WorkerConfigs)
 async def list_worker_configurations(api_key: str = Depends(get_api_key)):

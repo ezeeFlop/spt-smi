@@ -15,6 +15,8 @@ from rich.logging import RichHandler
 from rich.console import Console
 from typing import Dict, Tuple, Any
 
+from spt.models.workers import WorkerState
+
 console = Console()
 logging.basicConfig(
     level="INFO",
@@ -90,11 +92,15 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             return generic_pb2.GenericResponse(json_payload=response, response_model_class=payload['response_model_class'])
 
         except (ValidationError, ValueError) as e:
-            logger.error(f"Validation error processing data: {str(e)}")
+            logger.error(f"Validation error processing data: {str(e)} stack trace: {traceback.format_exc()}")
             error = MethodCallError(message=f"Failed to process request due to validation error: {str(e)}", status=JobStatuses.failed, error=traceback.format_exc())
             return generic_pb2.GenericResponse(json_payload=error.model_dump_json().encode("utf-8"), response_model_class="MethodCallError")
         except Exception as e:
             logger.error(f"Error processing data: {traceback.format_exc()}")
+            if hasattr(instance, 'status'):
+                instance.status = WorkerState.idle
+            if hasattr(instance, 'cleanup'):
+                instance.cleanup()
             error = MethodCallError(
                 message=f"Failed to process request due to: {str(e)}", status=JobStatuses.failed, error=traceback.format_exc())
             return generic_pb2.GenericResponse(json_payload=error.model_dump_json().encode("utf-8"), response_model_class="MethodCallError")

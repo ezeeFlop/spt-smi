@@ -1,63 +1,59 @@
 from spt.services.service import Worker, Service
 import gc
-from diffusers import DiffusionPipeline, StableDiffusionXLPipeline, AutoPipelineForText2Image, UNet2DConditionModel, EulerDiscreteScheduler
+from diffusers import StableDiffusion3Pipeline
 import torch
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 from spt.models.image import TextToImageResponse, TextToImageRequest
+from spt.utils import get_available_device, get_cuda_available_device
 import base64
 import PIL
 import io
 from spt.services.service import Service
 from spt.storage import Storage
 
-class StableDiffusion(Worker):
+class StableDiffusion3(Worker):
 
     def close_diffusion_pipe(self):
         self.pipe = None
-        self.generator = None
-        torch.cuda.empty_cache()
+        torch.cuda.empty_cache()   
         gc.collect()
 
     @classmethod
     def memory_usage(cls):
         max_memory = round(torch.cuda.max_memory_allocated(
-            device='cuda') / 1000000000, 2)
+            device= get_cuda_available_device()) / 1000000000, 2)
         return max_memory
 
     def get_diffusion_pipe(self):
         if self.pipe is None:
             pipe = None
-            generator = None
 
             if torch.backends.mps.is_available():
                 self.logger.info("MPS is available")
-                pipe = AutoPipelineForText2Image.from_pretrained(
+                pipe = StableDiffusion3Pipeline.from_pretrained(
                     self.model,
                 )
                 pipe = pipe.to("mps")
                 self.num_inference_steps = 30
-                generator = torch.Generator(device='mps')
 
             elif torch.cuda.is_available():
                 self.logger.info("CUDA is available")
 
-                pipe = AutoPipelineForText2Image.from_pretrained(
+                pipe = StableDiffusion3Pipeline.from_pretrained(
                     self.model,
                 )
                 self.num_inference_steps = 30
                 torch.backends.cuda.matmul.allow_tf32 = True
-                pipe = pipe.to("cuda")
+                pipe = pipe.to(get_cuda_available_device())
                 # pipe.enable_model_cpu_offload()
-                generator = torch.Generator(device='cuda')
 
             else:
                 self.logger.info("CUDA is **not** available")
-                pipe = AutoPipelineForText2Image.from_pretrained(
+                pipe = StableDiffusion3Pipeline.from_pretrained(
                     self.model, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
                 )
                 pipe = pipe.to("cpu")
-                generator = torch.Generator(device='cpu')
 
                 self.num_inference_steps = 5
 
@@ -67,22 +63,15 @@ class StableDiffusion(Worker):
             # _ = pipe(prompt, num_inference_steps=1)
 
             self.pipe = pipe
-            self.generator = generator
 
     def __del__(self):
         self.logger.info("Claiming memory")
-        if self.pipe is not None:
-            self.close_diffusion_pipe()
-            del self.pipe
-        if self.generator is not None:
-            del self.generator
-        gc.collect()
+        self.cleanup()
 
     def __init__(self, id:str, name: str, service: Service, model: str, logger):
         super().__init__(id=id, name=name, service=service, model=model, logger=logger)
         self.pipe = None
         self.num_inference_steps = 20
-        self.generator = None
 
     async def work(self, request: TextToImageRequest) -> TextToImageResponse:
         await super().work(request)
@@ -91,15 +80,11 @@ class StableDiffusion(Worker):
         if self.pipe == None:
             self.get_diffusion_pipe()
 
-        if request.seed is not None:
-            self.generator.manual_seed(request.seed)
-
         prompts = list(request.text_prompts)
         images = []
         for prompt in prompts:
             image = self.pipe(
                 prompt=prompt.text,
-                generator=self.generator,
                 num_inference_steps=request.steps,
             ).images[0]
             tampon_bytes = io.BytesIO()
@@ -120,6 +105,9 @@ class StableDiffusion(Worker):
         return TextToImageResponse(artifacts=images)
 
     def cleanup(self):
-        super().cleanup()
-        self.close_diffusion_pipe()
+        super().cleanup()   
+        if self.pipe is not None:
+            self.close_diffusion_pipe()
+            del self.pipe
         torch.cuda.empty_cache()
+        gc.collect()

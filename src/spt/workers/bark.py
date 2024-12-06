@@ -1,3 +1,4 @@
+import gc
 from spt.models.audio import TextToSpeechRequest, TextToSpeechResponse, TextToSpeechSpeakerRequest
 from spt.services.service import Service, Worker
 from spt.services.service import GenericServiceServicer
@@ -38,7 +39,7 @@ class Bark(Worker):
             del self.tts_model
             del self.processor
         torch.cuda.empty_cache()
-
+        gc.collect()
 
     def load_model(self, model_name: str):
         self.logger.info("Loading Bark models")

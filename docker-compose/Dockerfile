@@ -1,18 +1,18 @@
 
-FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04 AS build
+#FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04 AS build
 
-RUN apt-get update && apt-get install -y build-essential git cmake
+#RUN apt-get update && apt-get install -y build-essential git cmake
 
-WORKDIR /sd.cpp
+#WORKDIR /sd.cpp
 
-COPY stable-diffusion.cpp .
+#COPY stable-diffusion.cpp .
 
-RUN mkdir build && cd build && cmake .. -DSD_CUBLAS=ON && cmake --build . --config Release
+#RUN mkdir build && cd build && cmake .. -DSD_CUBLAS=ON && cmake --build . --config Release
 
 # Étape 1: Utiliser une image de base NVIDIA qui supporte Ubuntu 22.04
-FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04 AS runtime
+FROM nvidia/cuda:12.2.2-cudnn8-devel-ubuntu22.04 AS runtime
 
-COPY --from=build /sd.cpp/build/bin/sd /sd
+#COPY --from=build /sd.cpp/build/bin/sd /sd
 
 # Définir l'argument de version de Python pour faciliter les mises à jour
 ARG PYTHON_VERSION=3.11
@@ -73,16 +73,18 @@ RUN pip3 --no-cache-dir install --upgrade pip setuptools
 
 # Installer PyTorch
 RUN pip3 --no-cache-dir install torch torchvision torchaudio -f https://download.pytorch.org/whl/cu111/torch_stable.html
-
+ENV CMAKE_ARGS="-DSD_CUBLAS=ON"
 # Copier les fichiers de dépendances avant de les installer
 COPY --chown=spt pyproject.toml constraints.txt requirements.txt ./
 RUN python -m pip install --no-cache-dir . -c constraints.txt && \
     python -m pip install --no-cache-dir -r requirements.txt
 
 # Copier le code source et les modèles
-COPY --chown=spt src/ src/
 COPY --chown=spt models/ models/
 COPY --chown=spt models/nltk/ nltk_data
+COPY --chown=spt configs/ configs/
+COPY --chown=spt src/ src/
+
 # Exposer les ports nécessaires
 EXPOSE 8999 8501
 

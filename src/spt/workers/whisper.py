@@ -1,3 +1,4 @@
+import gc
 from faster_whisper import WhisperModel
 from spt.services.service import Worker, Service
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse
@@ -48,3 +49,4 @@ class Whisper(Worker):
             self.logger.info(f"Closing model {self.model}")
             del self.pipe
             torch.cuda.empty_cache()
+        gc.collect()

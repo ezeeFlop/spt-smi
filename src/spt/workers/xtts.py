@@ -1,3 +1,4 @@
+import gc
 from spt.models.audio import TextToSpeechRequest, TextToSpeechResponse, TextToSpeechSpeakerRequest
 from spt.services.service import Service, Worker
 from spt.services.service import GenericServiceServicer
@@ -28,6 +29,7 @@ class XTTS(Worker):
             self.logger.info(f"Closing model")
             del self.tts_model
         torch.cuda.empty_cache()
+        gc.collect()
 
     def load_model(self, model_name: str):
         torch.set_num_threads(os.cpu_count())

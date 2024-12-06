@@ -3,7 +3,7 @@ version: "3.8"
 services:
   api:
     restart: always 
-    image: spongetheory/spt-smi:latest
+    image: registry.sponge-theory.dev/spt-smi:latest
     ports:
       - "9999:9999"
       - "57000-57010:57000-57010"
@@ -46,7 +46,7 @@ services:
 
   jobs:
     restart: always 
-    image: spongetheory/spt-smi:latest
+    image: registry.sponge-theory.dev/spt-smi:latest
     networks:
       - dbs
       - servicesworkers
@@ -78,7 +78,7 @@ services:
 
   llmservice:
     restart: always 
-    image: spongetheory/spt-smi:latest
+    image: registry.sponge-theory.dev/spt-smi:latest
     ports:
       - "55002:55002"
       - "57011-57020:57011-57020"
@@ -119,7 +119,7 @@ services:
 
   imageservice:
     restart: always 
-    image: spongetheory/spt-smi:latest
+    image: registry.sponge-theory.dev/spt-smi:latest
     ports:
       - "55001:55001"
       - "57021-57030:57021-57030"
@@ -156,9 +156,10 @@ services:
         constraints:
           - node.labels.GPU == true
 
+
   audioservice:
     restart: always 
-    image: spongetheory/spt-smi:latest
+    image: registry.sponge-theory.dev/spt-smi:latest
     ports:
       - "55003:55003"
       - "57031-57040:57031-57040"
@@ -197,6 +198,45 @@ services:
       placement:
         constraints:
           - node.labels.GPU == true
+          
+  videoservice:
+      restart: always 
+      image: registry.sponge-theory.dev/spt-smi:latest
+      ports:
+        - "55005:55005"
+        - "57041-57050:57041-57050"
+      networks:
+        - servicesworkers
+        - dbs
+      depends_on:
+        - redis
+        - rabbitmq
+        - minio
+      environment:
+        - STREAMING_PORTS_RANGE=57021-57030
+        - RABBITMQ_DEFAULT_USER=root
+        - RABBITMQ_DEFAULT_PASS=jskdljflskdjflkjsqkjflkjqsldf564654
+        - IMAGE_GENERATION=0.0.0.0:55001
+        - RABBITMQ_HOST=spt-smi_rabbitmq
+        - REDIS_HOST=spt-smi_redis
+        - CONFIG_PATH=/configs
+        - MINIO_ROOT_USER=root
+        - MINIO_SERVER_ENDPOINT=smi-minio.sponge-theory.dev
+        - MINIO_ROOT_PASSWORD=Shes5z8pOv
+        - MINIO_SERVER_URL=https://smi-minio.sponge-theory.dev
+        - HF_TOKEN=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
+      volumes:
+        - /data/smi/prod/configs:/configs
+        - /data/smi/prod/data:/data
+        - /data/smi/prod/cache:/home/spt/.cache
+        - /var/run/docker.sock:/var/run/docker.sock
+  
+      command: "python -m spt.services.server --host 0.0.0.0 --port 55005 --type VIDEO_SERVICE"
+      deploy:
+        replicas: 1
+        placement:
+          constraints:
+            - node.labels.GPU == true
 
   redis:
     image: redis:latest

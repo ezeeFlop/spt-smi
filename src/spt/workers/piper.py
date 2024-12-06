@@ -1,3 +1,4 @@
+import gc
 from spt.models.audio import TextToSpeechRequest, TextToSpeechResponse
 from spt.services.service import Service, Worker
 from spt.utils import get_available_device
@@ -30,6 +31,7 @@ class Piper(Worker):
             self.logger.info(f"Closing model")
             del self.tts_model
         torch.cuda.empty_cache()
+        gc.collect()
 
     def load_model(self, model_path: str, config_path: str):
         self.logger.info("Loading PiperVoice TTS model")

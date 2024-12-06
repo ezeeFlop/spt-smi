@@ -80,6 +80,27 @@ def remove_temp_file(file_path: str) -> None:
     if os.path.exists(file_path):
         os.remove(file_path)
 
+def get_cuda_available_device():
+    if torch.cuda.is_available():
+        device_count = torch.cuda.device_count()
+        if device_count == 1:
+            return 'cuda:0'
+        
+        # If there are multiple CUDA devices, find the one with the most free memory
+        max_free_memory = 0
+        best_device = 0
+        
+        for i in range(device_count):
+            torch.cuda.set_device(i)
+            free_memory = torch.cuda.memory_allocated(i)
+            if free_memory > max_free_memory:
+                max_free_memory = free_memory
+                best_device = i
+        
+        return f'cuda:{best_device}'
+    else:
+        return None
+
 def get_available_device():
     if torch.backends.mps.is_available():
         return torch.device('mps')

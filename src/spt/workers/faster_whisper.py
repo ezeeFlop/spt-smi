@@ -1,3 +1,4 @@
+import gc
 from faster_whisper import WhisperModel
 from spt.services.service import Worker, Service
 from spt.models.audio import SpeechToTextRequest, SpeechToTextResponse
@@ -111,7 +112,7 @@ class FasterWhisper(Worker):
             self.logger.info(f"Closing model {self.model}")
             del self.model_instance
             torch.cuda.empty_cache()
-
+        gc.collect()
     def voice_activity(self, frame_np):
         if not self.vad_detector(frame_np):
             self.logger.info(
