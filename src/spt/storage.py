@@ -245,48 +245,71 @@ class Storage:
 
     def sanitize_filename(self, input_name: str, file_extension: str = None) -> str:
         """
-        Sanitizes a filename to be safe for storage systems while maintaining efficiency.
+        Sanitizes a filename to be compatible with MinIO object name requirements.
+        Enforces a 256 character limit for better compatibility.
+        
+        MinIO requirements:
+        - Must be UTF-8 string
+        - Limited to 256 characters
+        - Cannot start with './' or contain '../'
+        - Must not contain control characters
         
         Args:
             input_name (str): The original filename to sanitize
             file_extension (str, optional): The file extension to append
             
         Returns:
-            str: A sanitized filename that is safe to use
+            str: A MinIO-compatible object name
         """
+        MAX_LENGTH = 256
+
         if not input_name:
             return 'default_filename'
 
-        # Handle path traversal attempts
-        input_name = os.path.basename(input_name)
+        # Remove any path components and normalize slashes
+        input_name = input_name.replace('\\', '/').split('/')[-1]
         
-        # Efficient unicode normalization - only normalize if needed
-        if any(ord(char) > 127 for char in input_name):
-            input_name = unicodedata.normalize('NFKD', input_name).encode('ASCII', 'ignore').decode('ASCII')
-
-        # Single efficient regex to handle multiple cases
-        sanitized = re.sub(r'[^\w\-.]', '_', input_name)
+        # Remove control characters and non-printable characters
+        sanitized = ''.join(char for char in input_name if ord(char) >= 32 and ord(char) != 127)
         
-        # Remove consecutive special characters efficiently
-        sanitized = re.sub(r'[._-]+', '_', sanitized)
+        # Replace problematic characters but keep UTF-8 compatibility
+        sanitized = re.sub(r'[<>:"|?*]', '_', sanitized)
         
-        # Strip special characters from start and end
-        sanitized = sanitized.strip('._-')
+        # Replace multiple dots/spaces with single underscore
+        sanitized = re.sub(r'\.+', '.', sanitized)
+        sanitized = re.sub(r'\s+', '_', sanitized)
         
-        # Ensure the name isn't empty after sanitization
+        # Remove leading dots and spaces
+        sanitized = re.sub(r'^[.\s]+', '', sanitized)
+        
+        # Ensure we don't have empty string after sanitization
         if not sanitized:
             sanitized = 'default_filename'
-            
+
         # Handle file extension
         if file_extension:
-            # Remove leading dots from extension
+            # Clean extension
             file_extension = file_extension.lstrip('.')
-            # Ensure we don't exceed max length when adding extension
-            max_base_length = 1020 - len(file_extension)  # 1024 - 4 for dot and minimum extension
-            sanitized = f"{sanitized[:max_base_length]}.{file_extension}"
-        else:
-            sanitized = sanitized[:1024]
+            file_extension = re.sub(r'[^a-zA-Z0-9]', '', file_extension)[:10]
             
+            # Calculate maximum chars available for base name
+            max_base_length = MAX_LENGTH - len(file_extension) - 1  # -1 for the dot
+            
+            # Truncate base name if needed
+            if len(sanitized) > max_base_length:
+                sanitized = sanitized[:max_base_length].rstrip('._-')
+            
+            # Combine with extension
+            sanitized = f"{sanitized}.{file_extension}" if sanitized else f"f.{file_extension}"
+        else:
+            # Ensure total length is within limit
+            if len(sanitized) > MAX_LENGTH:
+                sanitized = sanitized[:MAX_LENGTH].rstrip('._-')
+        
+        # Final safety checks
+        if not sanitized or sanitized.startswith('./') or '../' in sanitized:
+            sanitized = 'default_filename'
+        
         return sanitized
 
     def sanitize_filename_old(self, input_name: str, file_extension: str = None) -> str:

@@ -13,19 +13,21 @@ from .models.workers import WorkerConfigs
 from .models.remotecalls import GPUsInfo
 
 class SMIClient:
-    def __init__(self, api_key: str, base_url: str = "http://localhost:8999"):
+    def __init__(self, api_key: str, base_url: str = "http://localhost:8999", timeout: int = 1000):
         """Initialize the SMI client.
         
         Args:
             api_key (str): The API key for authentication
             base_url (str, optional): The base URL of the API. Defaults to "http://localhost:8999"
+            timeout (int, optional): Request timeout in seconds. Defaults to 300 seconds (5 minutes)
         """
         self.api_key = api_key
         self.base_url = base_url.rstrip('/')
         self.headers = {
             "x-smi-key": self.api_key,
         }
-        self.client = httpx.AsyncClient()
+        transport = httpx.AsyncHTTPTransport(retries=3)
+        self.client = httpx.AsyncClient(transport=transport, timeout=timeout)
 
     async def close(self):
         """Close the HTTP client."""
@@ -94,7 +96,7 @@ class SMIClient:
                            keep_alive: Optional[int] = None,
                            storage: Optional[str] = None,
                            priority: Optional[str] = None,
-                           accept_format: Optional[str] = None) -> Union[JobResponse, TextToVideoResponse]:
+                           accept_format: Optional[str] = None) -> Union[JobResponse, TextToVideoResponse, bytes]:
         """Generate a video from text."""
         headers = self._add_optional_headers(
             self.headers.copy(),
@@ -115,6 +117,10 @@ class SMIClient:
         
         if async_mode:
             return JobResponse.model_validate(response.json())
+        
+        if accept_format:
+            return response.content
+        
         return TextToVideoResponse.model_validate(response.json())
 
     async def text_to_text(self,
