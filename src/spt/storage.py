@@ -245,14 +245,8 @@ class Storage:
 
     def sanitize_filename(self, input_name: str, file_extension: str = None) -> str:
         """
-        Sanitizes a filename to be compatible with MinIO object name requirements.
-        Enforces a 256 character limit for better compatibility.
-        
-        MinIO requirements:
-        - Must be UTF-8 string
-        - Limited to 256 characters
-        - Cannot start with './' or contain '../'
-        - Must not contain control characters
+        Sanitizes a filename to comply with MinIO object naming rules.
+        Only allows alphanumeric characters and underscores in the base name.
         
         Args:
             input_name (str): The original filename to sanitize
@@ -261,54 +255,31 @@ class Storage:
         Returns:
             str: A MinIO-compatible object name
         """
-        MAX_LENGTH = 256
-
         if not input_name:
             return 'default_filename'
 
-        # Remove any path components and normalize slashes
-        input_name = input_name.replace('\\', '/').split('/')[-1]
+        # Convert to basic ASCII and remove all non-alphanumeric characters
+        sanitized = ''.join(c.lower() if c.isalnum() else '_' for c in input_name)
         
-        # Remove control characters and non-printable characters
-        sanitized = ''.join(char for char in input_name if ord(char) >= 32 and ord(char) != 127)
+        # Replace multiple underscores with single underscore
+        sanitized = re.sub(r'_+', '_', sanitized)
         
-        # Replace problematic characters but keep UTF-8 compatibility
-        sanitized = re.sub(r'[<>:"|?*]', '_', sanitized)
-        
-        # Replace multiple dots/spaces with single underscore
-        sanitized = re.sub(r'\.+', '.', sanitized)
-        sanitized = re.sub(r'\s+', '_', sanitized)
-        
-        # Remove leading dots and spaces
-        sanitized = re.sub(r'^[.\s]+', '', sanitized)
+        # Remove leading and trailing underscores
+        sanitized = sanitized.strip('_')
         
         # Ensure we don't have empty string after sanitization
         if not sanitized:
             sanitized = 'default_filename'
+            
+        # Truncate to reasonable length before adding extension
+        sanitized = sanitized[:200]  # Leave room for extension
 
         # Handle file extension
         if file_extension:
-            # Clean extension
-            file_extension = file_extension.lstrip('.')
-            file_extension = re.sub(r'[^a-zA-Z0-9]', '', file_extension)[:10]
-            
-            # Calculate maximum chars available for base name
-            max_base_length = MAX_LENGTH - len(file_extension) - 1  # -1 for the dot
-            
-            # Truncate base name if needed
-            if len(sanitized) > max_base_length:
-                sanitized = sanitized[:max_base_length].rstrip('._-')
-            
-            # Combine with extension
-            sanitized = f"{sanitized}.{file_extension}" if sanitized else f"f.{file_extension}"
-        else:
-            # Ensure total length is within limit
-            if len(sanitized) > MAX_LENGTH:
-                sanitized = sanitized[:MAX_LENGTH].rstrip('._-')
-        
-        # Final safety checks
-        if not sanitized or sanitized.startswith('./') or '../' in sanitized:
-            sanitized = 'default_filename'
+            # Clean extension - only allow alphanumeric
+            file_extension = ''.join(c for c in file_extension if c.isalnum())
+            if file_extension:
+                sanitized = f"{sanitized}.{file_extension}"
         
         return sanitized
 
