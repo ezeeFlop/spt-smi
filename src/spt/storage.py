@@ -10,6 +10,7 @@ import io
 from typing import Optional
 from datetime import datetime, timedelta
 import unicodedata
+import os
 
 console = Console()
 
@@ -243,40 +244,49 @@ class Storage:
         return sanitized
 
     def sanitize_filename(self, input_name: str, file_extension: str = None) -> str:
-        # MinIO object names can be up to 1024 bytes long
-        max_length = 1024
+        """
+        Sanitizes a filename to be safe for storage systems while maintaining efficiency.
+        
+        Args:
+            input_name (str): The original filename to sanitize
+            file_extension (str, optional): The file extension to append
+            
+        Returns:
+            str: A sanitized filename that is safe to use
+        """
+        if not input_name:
+            return 'default_filename'
 
-        # Normalize unicode characters
-        sanitized = unicodedata.normalize('NFKD', input_name).encode(
-            'ASCII', 'ignore').decode('ASCII')
+        # Handle path traversal attempts
+        input_name = os.path.basename(input_name)
+        
+        # Efficient unicode normalization - only normalize if needed
+        if any(ord(char) > 127 for char in input_name):
+            input_name = unicodedata.normalize('NFKD', input_name).encode('ASCII', 'ignore').decode('ASCII')
 
-        # Remove or replace characters that are problematic for filenames
-        sanitized = re.sub(r'[\\/*?:"<>|]', '', sanitized)
-        # Replace whitespace with underscore
-        sanitized = re.sub(r'[\s]+', '_', sanitized)
-
-        # Remove any non-ASCII characters that might have survived
-        sanitized = re.sub(r'[^\x00-\x7F]+', '', sanitized)
-
-        # Remove leading and trailing periods, spaces, and underscores
-        sanitized = sanitized.strip('._')
-
-        # Ensure the name isn't empty
+        # Single efficient regex to handle multiple cases
+        sanitized = re.sub(r'[^\w\-.]', '_', input_name)
+        
+        # Remove consecutive special characters efficiently
+        sanitized = re.sub(r'[._-]+', '_', sanitized)
+        
+        # Strip special characters from start and end
+        sanitized = sanitized.strip('._-')
+        
+        # Ensure the name isn't empty after sanitization
         if not sanitized:
             sanitized = 'default_filename'
-
-        # Truncate to a reasonable length before adding extension
-        max_base_length = 100  # Adjust this value as needed
-        sanitized = sanitized[:max_base_length]
-
-        # Add file extension if provided
+            
+        # Handle file extension
         if file_extension:
-            sanitized = f"{sanitized}.{file_extension}"
-
-        # Final truncation to max_length bytes
-        sanitized = sanitized.encode(
-            'utf-8')[:max_length].decode('utf-8', errors='ignore')
-
+            # Remove leading dots from extension
+            file_extension = file_extension.lstrip('.')
+            # Ensure we don't exceed max length when adding extension
+            max_base_length = 1020 - len(file_extension)  # 1024 - 4 for dot and minimum extension
+            sanitized = f"{sanitized[:max_base_length]}.{file_extension}"
+        else:
+            sanitized = sanitized[:1024]
+            
         return sanitized
 
     def sanitize_filename_old(self, input_name: str, file_extension: str = None) -> str:
