@@ -40,7 +40,7 @@ class Whisper(Worker):
         self.logger.info(f"Result: {response}")
 
         remove_temp_file(file)
-
+        self.cleanup()
         return response
 
     def cleanup(self):

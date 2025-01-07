@@ -222,6 +222,7 @@ class LTX(Worker):
         text_encoder = T5EncoderModel.from_pretrained(
             "PixArt-alpha/PixArt-XL-2-1024-MS", subfolder="text_encoder"
         ).to(torch.bfloat16)
+
         if torch.cuda.is_available():
             text_encoder = text_encoder.to("cuda")
         tokenizer = T5Tokenizer.from_pretrained(
@@ -320,6 +321,20 @@ class LTX(Worker):
                 os.unlink(temp_file.name)
 
         self.logger.warning(f"Output saved to {self.cache_dir}")
+        # Clean up all resources
+        del images
+        del video_np
+        del unet
+        del vae
+        del scheduler
+        del patchifier
+        del text_encoder
+        del tokenizer
+        del submodel_dict
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        self.cleanup()
+    
         return TextToVideoResponse(artifacts=videos)
 
     async def stream(self, data: Union[bytes | str | Dict[str, Any]]) -> Union[bytes | str | Dict[str, Any]]:
@@ -336,3 +351,4 @@ class LTX(Worker):
             self.logger.info(f"Closing generator {self.generator}")
             del self.generator
         gc.collect()
+        torch.cuda.empty_cache()

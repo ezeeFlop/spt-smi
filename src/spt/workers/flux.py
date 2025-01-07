@@ -1,31 +1,36 @@
-from spt.services.service import Worker, Service
-import gc
-from diffusers import DiffusionPipeline, StableDiffusionXLPipeline, AutoPipelineForText2Image, UNet2DConditionModel, EulerDiscreteScheduler
-import torch
-from huggingface_hub import hf_hub_download
-from safetensors.torch import load_file
-from spt.models.image import TextToImageResponse, TextToImageRequest
 import base64
-import PIL
 import io
-from spt.services.service import Service
-from spt.storage import Storage
+from spt.models.image import TextToImageResponse
+from spt.services.service import Worker, Service
+from spt.utils import create_temp_file, remove_temp_file, get_available_device
+from spt.models.workers import WorkerBaseRequest
+from pydantic import BaseModel
+from typing import Union, Dict, Any
+import torch
+from diffusers import FluxPipeline
+import gc
 
-class StableDiffusion(Worker):
+class Flux(Worker):
+    def __init__(self, id:str, name: str, service: Service, model: str, logger):
+        super().__init__(id=id, name=name, service=service, model=model, logger=logger)
+        self.my_model = None
+        self.pipe = None
+        self.generator = None
+
+    def __del__(self):
+        self.logger.warning("Claiming memory")
+        if self.pipe is not None:
+            self.close_diffusion_pipe()
+            del self.pipe
+        if self.generator is not None:
+            del self.generator
+        torch.cuda.empty_cache()
+        gc.collect()
 
     def close_diffusion_pipe(self):
         self.pipe = None
         self.generator = None
-        del self.pipe
-        del self.generator
-        gc.collect()
         torch.cuda.empty_cache()
-
-    @classmethod
-    def memory_usage(cls):
-        max_memory = round(torch.cuda.max_memory_allocated(
-            device='cuda') / 1000000000, 2)
-        return max_memory
 
     def get_diffusion_pipe(self):
         if self.pipe is None:
@@ -34,8 +39,9 @@ class StableDiffusion(Worker):
 
             if torch.backends.mps.is_available():
                 self.logger.warning("MPS is available")
-                pipe = AutoPipelineForText2Image.from_pretrained(
+                pipe = FluxPipeline.from_pretrained(
                     self.model,
+
                 )
                 pipe = pipe.to("mps")
                 self.num_inference_steps = 30
@@ -44,18 +50,20 @@ class StableDiffusion(Worker):
             elif torch.cuda.is_available():
                 self.logger.warning("CUDA is available")
 
-                pipe = AutoPipelineForText2Image.from_pretrained(
+                pipe = FluxPipeline.from_pretrained(
                     self.model,
+                    torch_dtype=torch.bfloat16,
+                    device_map='balanced'
                 )
-                self.num_inference_steps = 30
-                torch.backends.cuda.matmul.allow_tf32 = True
-                pipe = pipe.to("cuda")
-                # pipe.enable_model_cpu_offload()
-                generator = torch.Generator(device='cuda')
+                self.num_inference_steps = 50
+                #torch.backends.cuda.matmul.allow_tf32 = True
+                #pipe = pipe.to("cuda:0")
+                #pipe.enable_model_cpu_offload()
+                generator = torch.Generator(device='cpu')
 
             else:
                 self.logger.warning("CUDA is **not** available")
-                pipe = AutoPipelineForText2Image.from_pretrained(
+                pipe = FluxPipeline.from_pretrained(
                     self.model, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
                 )
                 pipe = pipe.to("cpu")
@@ -66,30 +74,12 @@ class StableDiffusion(Worker):
             pipe.enable_attention_slicing()
             pipe.safety_checker = None
 
-            # _ = pipe(prompt, num_inference_steps=1)
-
             self.pipe = pipe
             self.generator = generator
 
-    def __del__(self):
-        self.logger.warning("Claiming memory")
-        if self.pipe is not None:
-            self.close_diffusion_pipe()
-            del self.pipe
-        if self.generator is not None:
-            del self.generator
-        torch.cuda.empty_cache()
-
-    def __init__(self, id:str, name: str, service: Service, model: str, logger):
-        super().__init__(id=id, name=name, service=service, model=model, logger=logger)
-        self.pipe = None
-        self.num_inference_steps = 20
-        self.generator = None
-
-    async def work(self, request: TextToImageRequest) -> TextToImageResponse:
+    async def work(self, request: WorkerBaseRequest) -> BaseModel:
         await super().work(request)
-
-        self.logger.warning(f"Generate Image with {request}")
+        self.logger.warning("Starting work")
         if self.pipe == None:
             self.get_diffusion_pipe()
 
@@ -101,9 +91,14 @@ class StableDiffusion(Worker):
         images = []
         for prompt in prompts:
             image = self.pipe(
-                prompt=prompt.text,
-                generator=self.generator,
-                num_inference_steps=request.steps,
+                prompt.text,
+                width=512,
+                height=512,
+                guidance_scale      = 7,
+                output_type         = "pil",
+                num_inference_steps = request.steps,
+                max_sequence_length = 512,
+                generator           = self.generator
             ).images[0]
             tampon_bytes = io.BytesIO()
             image.save(tampon_bytes, format='PNG')
@@ -122,12 +117,29 @@ class StableDiffusion(Worker):
                     {"base64": image_base64, "seed": request.seed, "finishReason": "SUCCESS"})
         
         self.logger.warning("Ending work")
-
+        self.cleanup() # Force cleanup
         return TextToImageResponse(artifacts=images)
+
+
+    async def stream(self, data: Union[bytes | str | Dict[str, Any]]) -> Union[bytes | str | Dict[str, Any]]:
+        # do something with data
+
+        return data
 
     def cleanup(self):
         super().cleanup()
         self.logger.warning("Cleaning up...")
-        self.close_diffusion_pipe()
+        if self.my_model is not None:
+            self.logger.info(f"Closing model {self.my_model}")
+            del self.my_model
+            self.my_model = None
+        if self.pipe is not None:
+            self.close_diffusion_pipe()
+            del self.pipe
+            self.pipe = None
+        if self.generator is not None:
+            del self.generator
+            self.generator = None
         torch.cuda.empty_cache()
+        gc.collect()
         self.logger.warning("Cleanup completed")

@@ -16,6 +16,7 @@ class StableDiffusion3(Worker):
 
     def close_diffusion_pipe(self):
         self.pipe = None
+        del self.pipe
         torch.cuda.empty_cache()   
         gc.collect()
 
@@ -102,6 +103,7 @@ class StableDiffusion3(Worker):
                 images.append(
                     {"base64": image_base64, "seed": request.seed, "finishReason": "SUCCESS"})
 
+        self.cleanup()
         return TextToImageResponse(artifacts=images)
 
     def cleanup(self):

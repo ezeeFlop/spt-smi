@@ -43,12 +43,17 @@ class SamplersPreset(str, Enum):
     k_euler_ancestral = "K_EULER_ANCESTRAL"
     k_heun = "K_HEUN"
     k_lms = "K_LMS"
-
+class TextPrompt(BaseModel):
+    text: str = Field(..., example="A lighthouse on a cliff")
+    negative_prompt: Optional[str] = Field(default=None, example="blurry, low quality")
+    weight: float = Field(default=0.5, ge=0, le=1,
+                          description="Poids du prompt, entre 0 et 1")
 class TextToImageRequest(WorkerBaseRequest):
     height: int = Field(default=512, ge=128, description="Height of the generated image")
     width: int = Field(default=768, ge=128, description="Width of the generated image")
-    prompt: str = Field(..., example="A beautiful sunset over mountains")
-    negative_prompt: Optional[str] = Field(default=None, example="blurry, low quality")
+    text_prompts: List[TextPrompt] = Field(..., example=[
+        {"text": "A lighthouse on a cliff", "weight": 0.5}
+    ])
     steps: int = Field(default=1, ge=1, le=100, description="Numbers of steps to generate the image")
     samples: int = Field(default=1, ge=1, le=10, description="Numbers of samples to generate")
     cfg_scale: int = Field(default=7, ge=1, le=35, description="How strictly the diffusion process adheres to the prompt")

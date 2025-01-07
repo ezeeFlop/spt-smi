@@ -13,6 +13,21 @@ import logging
 from typing import Dict, Any, Optional, List
 from spt.utils import find_free_port, get_ip
 
+from rich.logging import RichHandler
+from rich.console import Console
+
+console = Console()
+
+# Configure logging before any gRPC operations
+logging.basicConfig(
+    level="INFO",
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(
+        console=console, rich_tracebacks=True, show_time=False)]
+)
+
+
 class Service:
     def __init__(self, servicer: GenericServiceServicer) -> None:
         self.servicer: GenericServiceServicer = servicer
@@ -22,7 +37,7 @@ class Service:
         self.workers: Dict[str, Worker] = {}
         self.worker_configs: WorkerConfig = WorkerConfigs.get_configs().workers_configs
         self.instances: List[Worker] = []
-        self.logger: logging.Logger = None
+        self.logger: logging.Logger = logging.getLogger(__name__)
     
     def set_logger(self, logger: logging.Logger):
         self.logger = logger
@@ -89,10 +104,16 @@ class Service:
             raise
 
     async def work(self, request: WorkerBaseRequest) -> BaseModel:
-        worker = await self.get_worker(request.worker_id)
-        result = await worker.work(request)
-        worker.stop()
-        return result
+        try:
+            worker = await self.get_worker(request.worker_id)
+            result = await worker.work(request)
+            worker.stop()
+            return result
+        except Exception as e:
+            self.logger.error(f"  [-] Error in work: {e}")
+            worker.stop()
+            worker.cleanup()
+            raise
 
     async def stream(self, request: WorkerStreamManageRequest) -> WorkerStreamManageResponse:
             # Get the hostname of the current machine

@@ -10,12 +10,13 @@ from spt.services.service import Worker, Service
 from spt.models.image import TextToImageResponse, TextToImageRequest
 from stable_diffusion_cpp import StableDiffusion
 
+CACHE_DIR = "/home/spt/.cache/flux"
+
 class FluxCpp(Worker):
     def __init__(self, id: str, name: str, service: Service, model: str, logger):
         super().__init__(id=id, name=name, service=service, model=model, logger=logger)
-        self.sd_binary_path = "/sd"
         self.num_inference_steps = 20
-        self.cache_dir = Path("/home/spt/.cache/flux")
+        self.cache_dir = Path(CACHE_DIR)
         if not self.cache_dir.exists():
             self.cache_dir = Path("/tmp")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +89,7 @@ class FluxCpp(Worker):
                                         vae_path=model_paths["ae.safetensors"],
                                         clip_l_path=model_paths["clip_l.safetensors"],
                                         t5xxl_path=model_paths["t5xxl_fp16.safetensors"],
+                                        lora_model_dir=CACHE_DIR,
                                         wtype="default")
 
 

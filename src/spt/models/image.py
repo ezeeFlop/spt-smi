@@ -46,6 +46,8 @@ class SamplersPreset(str, Enum):
 
 class TextPrompt(BaseModel):
     text: str = Field(..., example="A lighthouse on a cliff")
+    negative_prompt: Optional[str] = Field(default=None, example="blurry, low quality")
+
     weight: float = Field(default=0.5, ge=0, le=1,
                           description="Poids du prompt, entre 0 et 1")
 

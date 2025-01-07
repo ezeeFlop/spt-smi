@@ -10,12 +10,12 @@ import requests
 class OllamaChat(Worker):
     def __init__(self, id:str, name: str, service: Service, model: str, logger):
         super().__init__(id=id, name=name, service=service, model=model, logger=logger)
-        self.logger.info(f"Connecting to {OLLAMA_URL}")
+        self.logger.warning(f"Connecting to {OLLAMA_URL}")
         self.client = Client(host=OLLAMA_URL, timeout=500)
         self.models = []
 
     def __del__(self):
-        self.logger.info("Claiming memory")
+        self.logger.warning("Claiming memory")
         self.cleanup()
 
     async def work(self, request: ChatRequest) -> ChatResponse:
@@ -46,6 +46,7 @@ class OllamaChat(Worker):
                                       format=request.format)
 
         lastItem = None
+        self.logger.info(f"Result: {result}")
 
         if request.stream and inspect.isgenerator(result):
             self.logger.info(f"Stream detected...")
@@ -56,8 +57,7 @@ class OllamaChat(Worker):
                 lastItem = response
                 self.service.chunked_request(response)
         else:
-            lastItem = ChatResponse(**result)
-        self.logger.info(f"Result: {result}")
+            lastItem = ChatResponse(**result.model_dump())
 
         return lastItem
 

@@ -89,8 +89,10 @@ class Bark(Worker):
         if self.service.should_store():
             url = self.service.store_bytes(
                 bytes=wav_file, name=request.text, extension="wav")
+            self.cleanup()  
             return TextToSpeechResponse(url=url)
         else:
+            self.cleanup()
             return TextToSpeechResponse(base64=self.encode_audio_common(wav_file))
 
     def encode_audio_common(self, frame_input, encode_base64=True, sample_rate=24000, sample_width=2, channels=1):

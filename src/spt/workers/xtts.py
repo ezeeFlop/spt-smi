@@ -81,8 +81,10 @@ class XTTS(Worker):
         if self.service.should_store():
             url = self.service.store_bytes(
                 bytes=wav_file, name=request.text, extension="wav")
+            self.cleanup()
             return TextToSpeechResponse(url=url)
         else:
+            self.cleanup()
             return TextToSpeechResponse(base64=self.encode_audio_common(wav_file))
 
     def add_speakers(self, request: TextToSpeechSpeakerRequest):

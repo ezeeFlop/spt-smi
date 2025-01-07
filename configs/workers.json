@@ -31,6 +31,14 @@
         "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
+    "fluxDev": {
+        "description": "Flux Dev",
+        "model": "black-forest-labs/FLUX.1-dev",
+        "worker": "spt.workers.flux.Flux",
+        "type": "IMAGE",
+        "request_model": "spt.models.image.TextToImageRequest",
+        "response_model": "spt.models.image.TextToImageResponse"
+    },
     "fluxSchnellCpp": {
         "description": "Flux Schnell Q3_K",
         "model": "flux1-schnell-q3_k",
@@ -60,7 +68,7 @@
         "model": "flux1-dev-q8_0",
         "worker": "spt.workers.flux_cpp.FluxCpp",
         "type": "IMAGE",
-        "request_model": "spt.workers.flux_cpp.FluxCpp",
+        "request_model": "spt.models.image.TextToImageRequest",
         "response_model": "spt.models.image.TextToImageResponse"
     },
     "stable-diffusion-xl": {

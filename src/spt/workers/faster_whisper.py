@@ -57,6 +57,7 @@ class FasterWhisper(Worker):
 
         remove_temp_file(file)
 
+        self.cleanup()
         return response
 
     def receive_audio_chunk(self, raw_bytes: bytes):

@@ -72,13 +72,13 @@ ENV PATH="$VIRTUALENV/bin:$PATH"
 RUN pip3 --no-cache-dir install --upgrade pip setuptools
 
 # Installer PyTorch
-RUN pip3 --no-cache-dir install torch torchvision torchaudio -f https://download.pytorch.org/whl/cu111/torch_stable.html
-ENV CMAKE_ARGS="-DSD_CUBLAS=ON"
+#RUN pip3 --no-cache-dir install torch torchvision torchaudio -f https://download.pytorch.org/whl/cu111/torch_stable.html
+ENV CMAKE_ARGS="-DSD_CUBLAS=ON -DCMAKE_CUDA_ARCHITECTURES=all"
 # Copier les fichiers de dépendances avant de les installer
 COPY --chown=spt pyproject.toml constraints.txt requirements.txt ./
-RUN python -m pip install --no-cache-dir . -c constraints.txt && \
-    python -m pip install --no-cache-dir -r requirements.txt
-
+#RUN python -m pip install --no-cache-dir . -c constraints.txt && \
+RUN python -m pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir -U diffusers
 # Copier le code source et les modèles
 COPY --chown=spt models/ models/
 COPY --chown=spt models/nltk/ nltk_data
