@@ -1,5 +1,6 @@
 import base64
 import io
+from pathlib import Path
 from spt.models.image import TextToImageResponse
 from spt.services.service import Worker, Service
 from spt.utils import create_temp_file, remove_temp_file, get_available_device
@@ -16,6 +17,7 @@ class Flux(Worker):
         self.my_model = None
         self.pipe = None
         self.generator = None
+        self.lora_dir = Path("/home/spt/.cache/lora")
 
     def __del__(self):
         self.logger.warning("Claiming memory")
@@ -56,6 +58,8 @@ class Flux(Worker):
                     device_map='balanced'
                 )
                 self.num_inference_steps = 50
+                pipe.load_lora_weights("SamFloppy/OurSelfves", weight_name="cve.safetensors")
+                pipe.fuse_lora(lora_scale=1.0)
                 #torch.backends.cuda.matmul.allow_tf32 = True
                 #pipe = pipe.to("cuda:0")
                 #pipe.enable_model_cpu_offload()

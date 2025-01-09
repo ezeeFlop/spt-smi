@@ -1,22 +1,27 @@
-import gc
+from sentence_transformers import SentenceTransformer
 import torch
+from spt.models.llm import EmbeddingsRequest, EmbeddingsResponse
+import gc
 from spt.services.service import Worker, Service
-from spt.utils import create_temp_file, remove_temp_file, get_available_device
-from spt.models.workers import WorkerBaseRequest
 from pydantic import BaseModel
 from typing import Union, Dict, Any
 
-class Template(Worker):
+class SentencesTransformer(Worker):
     def __init__(self, id:str, name: str, service: Service, model: str, logger):
         super().__init__(id=id, name=name, service=service, model=model, logger=logger)
         self.my_model = None
 
-    async def work(self, request: WorkerBaseRequest) -> BaseModel:
+    async def work(self, request: EmbeddingsRequest) -> BaseModel:
         await super().work(request)
+        if self.my_model is None:
+            self.logger.warning(f"Loading model {self.model}")
+            self.my_model = SentenceTransformer(self.model, model_kwargs={"torch_dtype": torch.float16})
+        
+        embeddings = []
+        for text in request.text:
+            embeddings.append(self.my_model.encode(text))
 
-        # load self.model ...
-
-        return None
+        return EmbeddingsResponse(embeddings=embeddings)
 
     async def stream(self, data: Union[bytes | str | Dict[str, Any]]) -> Union[bytes | str | Dict[str, Any]]:
         # do something with data

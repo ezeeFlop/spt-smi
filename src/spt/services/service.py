@@ -46,10 +46,10 @@ class Service:
         self.logger.info(f"  [-] Service Check {len(self.instances)}# Workers...")
         for worker in self.instances[:]:  # Iterate over a copy of the list
             if worker.get_status() == WorkerState.idle:
-                self.logger.info(f"    [-] Garbaging worker idle {worker.id}")
-                worker.stop()
-                worker.cleanup()
-                self.instances.remove(worker)
+                self.logger.info(f"    [-] Idle worker {worker.id}")
+                #worker.stop()
+                #worker.cleanup()
+                #self.instances.remove(worker)
             else:
                 self.logger.info(f"    [-] Worker {worker.id} with status {worker.get_status()} is still alive since {worker.get_duration()} seconds")
                 if worker.get_duration() > self.keep_alive * 60:

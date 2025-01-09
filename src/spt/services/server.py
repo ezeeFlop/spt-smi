@@ -153,7 +153,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
         super().__init__()
         self.type: JobsTypes = type
         self.instances: Dict[Tuple[str, str, str], InstanceInfo] = {}
-        self.task_manager = TaskManager(interval=30)  # Reduced interval for more frequent checks
+        self.task_manager = TaskManager(interval=10)  # Reduced interval for more frequent checks
         self._logger = logger  # Keep a protected reference to the logger
         self._logger.warning("[*] Initialized Stateless Servicer")
 
@@ -187,6 +187,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
                     if current_keep_alive <= 0 or current_time.timestamp() > info.expiration:
                         self.logger.warning(f"[*] Instance {key} being removed - Keep alive: {current_keep_alive}, Expired: {current_time.timestamp() > info.expiration}")
                         if key in self.instances:
+
                             if hasattr(info.instance, 'cleanup'):
                                 info.instance.cleanup()
                             self.instances.pop(key, None)
@@ -242,7 +243,7 @@ class GenericServiceServicer(generic_pb2_grpc.GenericServiceServicer):
             }
 
             instance_key: Tuple[str, str, str] = (
-                payload['remote_class'], payload['remote_method'], storage)
+                payload['remote_class'], payload['remote_method'], storage, worker_id)
 
             self.logger.warning(f"[*] Received request with worker_id {worker_id} storage: {storage} keep_alive: {keep_alive} instance_key: {instance_key} remote_class: {payload['remote_class']} remote_function: {payload['remote_function']} remote_method: {payload['remote_method']} response_model_class: {payload['response_model_class']}")
 

@@ -50,8 +50,7 @@ class ChatResponse(BaseModel):
 # Modèles pour l'endpoint Generate Embeddings
 
 class EmbeddingsRequest(WorkerBaseRequest):
-    prompt: str
-    options: Optional[LLMOptions] = None
+    text: List[str]
 
 class EmbeddingsResponse(BaseModel):
-    embedding: List[float]
+    embeddings: List[List[float]]

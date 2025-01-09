@@ -66,3 +66,4 @@ beautifulsoup4
 stable-diffusion-cpp-python
 imageio[ffmpeg]
 ftfy
+peft

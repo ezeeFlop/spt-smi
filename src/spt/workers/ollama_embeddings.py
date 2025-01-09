@@ -27,9 +27,7 @@ class OllamaEmbeddings(Worker):
                                         )
         if self.model not in self.models:
             self.models.append(self.model)
-        self.logger.info(f"Result: {result}")
-        self.cleanup()
-        return EmbeddingsResponse(**result)
+        return EmbeddingsResponse(embedding=result.embedding)
 
     def cleanup(self):
         super().cleanup()

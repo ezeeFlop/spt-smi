@@ -150,5 +150,13 @@
         "type": "EMBEDDING",
         "request_model": "spt.models.llm.EmbeddingsRequest",
         "response_model": "spt.models.llm.EmbeddingsResponse"
+    },
+    "gemma2_embeddings": {
+        "description": "Gemma2 Embeddings",
+        "model": "BAAI/bge-multilingual-gemma2",
+        "worker": "spt.workers.sentences_transformer.SentencesTransformer",
+        "type": "EMBEDDING",
+        "request_model": "spt.models.llm.EmbeddingsRequest",
+        "response_model": "spt.models.llm.EmbeddingsResponse"
     }
 }

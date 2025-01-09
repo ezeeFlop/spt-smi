@@ -48,6 +48,10 @@ class Dispatcher:
     async def allow_run_job(self, job: Job):
         logger.info(f"Allowing job {job.id} {job.type}")
         return True
+    
+    def stop(self):
+        for client in self.clients.values():
+            client.stop()
 
     async def execute_job(self, job: Job) -> Union[BaseModel | JobResponse]:
         logger.info(f"Executing job {job.id} {job.type}")

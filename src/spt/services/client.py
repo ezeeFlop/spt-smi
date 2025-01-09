@@ -6,6 +6,7 @@ from spt.jobs import Job
 import json
 from rich.logging import RichHandler
 from rich.console import Console
+import time
 
 console = Console()
 
@@ -37,6 +38,9 @@ class GenericClient:
         response = self.stub.ProcessData(request)
         logger.info(f"Response with payload: {response.json_payload}")
         return json.loads(response.json_payload)
+    
+    def stop(self):
+        self.channel.close()
 
     def process_data(self, job: Job) -> generic_pb2.GenericResponse:
         string_payload = json.dumps(job.payload)
@@ -53,7 +57,21 @@ class GenericClient:
             worker_id=job.worker_id,
             storage=job.storage,
             keep_alive=job.keep_alive)
-        
-        response = self.stub.ProcessData(request)
-        logger.info(f"[**] Service response with payload: {response.json_payload}")
-        return response
+
+        max_retries = 3
+        retry_count = 0
+        base_delay = 1  # Start with 1 second delay
+
+        while retry_count < max_retries:
+            try:
+                response = self.stub.ProcessData(request)
+                logger.info(f"[**] Service response with payload: {response.json_payload}")
+                return response
+            except grpc._channel._InactiveRpcError as e:
+                retry_count += 1
+                if retry_count == max_retries:
+                    logger.error(f"Failed after {max_retries} attempts. Last error: {str(e)}")
+                    raise
+                delay = base_delay * (2 ** (retry_count - 1))  # Exponential backoff
+                logger.warning(f"RPC connection error, attempt {retry_count}/{max_retries}. Retrying in {delay} seconds...")
+                time.sleep(delay)

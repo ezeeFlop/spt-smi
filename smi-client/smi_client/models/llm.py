@@ -43,8 +43,7 @@ class ChatResponse(BaseModel):
     eval_duration: Optional[int] = 0
 
 class EmbeddingsRequest(WorkerBaseRequest):
-    prompt: str
-    options: Optional[LLMOptions] = None
+    text: List[str]
 
 class EmbeddingsResponse(BaseModel):
-    embedding: List[float] 
+    embeddings: List[List[float]]

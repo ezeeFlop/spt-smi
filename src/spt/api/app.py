@@ -36,8 +36,9 @@ async def lifespan(app: FastAPI):
         app.state.dispatcher = dispatcher
     yield
     # Clean up the ML models and release the resources
-    for job in jobs:
-        job.stop()
+    #for job in jobs:
+    #    job.stop()
+    dispatcher.stop()
 
 app = FastAPI(
     lifespan=lifespan,
