@@ -55,7 +55,8 @@ class Flux(Worker):
                 pipe = FluxPipeline.from_pretrained(
                     self.model,
                     torch_dtype=torch.bfloat16,
-                    device_map='balanced'
+                    device_map="balanced",
+                    max_memory={0: "20GB", 1: "20GB"},
                 )
                 self.num_inference_steps = 50
                 self.logger.warning("Loading lora weights...")
@@ -114,9 +115,9 @@ class Flux(Worker):
             if self.service.should_store():
                 self.logger.warning(f"Storing image...")
                 url = self.service.store_bytes(
-                    bytes=bytes_image, name=prompt.text, extension="png")
+                    bytes=bytes_image, name=f"{request.seed}_{prompt.text}", extension="png")
                 images.append({"url": url,
-                              "seed": 42, "finishReason": "SUCCESS"})
+                              "seed": request.seed, "finishReason": "SUCCESS"})
             else:
                 image_base64 = base64.b64encode(bytes_image)
                 images.append(
@@ -147,5 +148,7 @@ class Flux(Worker):
             del self.generator
             self.generator = None
         torch.cuda.empty_cache()
+        torch.cuda.reset_max_memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
         gc.collect()
         self.logger.warning("Cleanup completed")

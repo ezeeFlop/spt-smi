@@ -103,6 +103,8 @@ class StableDiffusion(Worker):
             image = self.pipe(
                 prompt=prompt.text,
                 generator=self.generator,
+                width=request.width,
+                height=request.height,
                 num_inference_steps=request.steps,
             ).images[0]
             tampon_bytes = io.BytesIO()
@@ -113,9 +115,9 @@ class StableDiffusion(Worker):
             if self.service.should_store():
                 self.logger.warning(f"Storing image...")
                 url = self.service.store_bytes(
-                    bytes=bytes_image, name=prompt.text, extension="png")
+                    bytes=bytes_image, name=f"{request.seed}-{prompt.text}", extension="png")
                 images.append({"url": url,
-                              "seed": 42, "finishReason": "SUCCESS"})
+                              "seed": request.seed, "finishReason": "SUCCESS"})
             else:
                 image_base64 = base64.b64encode(bytes_image)
                 images.append(
