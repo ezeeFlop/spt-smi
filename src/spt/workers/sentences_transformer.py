@@ -16,6 +16,7 @@ class SentencesTransformer(Worker):
         if self.my_model is None:
             self.logger.warning(f"Loading model {self.model}")
             self.my_model = SentenceTransformer(self.model, model_kwargs={"torch_dtype": torch.float16})
+            self.my_model.to(self.get_device())
         
         embeddings = []
         for text in request.text:

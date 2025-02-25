@@ -1,3 +1,4 @@
+import torch
 from spt.models.workers import WorkerState, WorkerStreamType 
 import asyncio
 from pydantic import BaseModel, ValidationError
@@ -111,3 +112,15 @@ class Worker:
         if self.start_time:
             return time.time() - self.start_time
         return 0.0
+    
+    def get_device(self) -> str:
+        if torch.backends.mps.is_available():
+            self.logger.warning("MPS is available")
+            return "mps"
+
+        elif torch.cuda.is_available():
+            self.logger.warning("CUDA is available")
+            return "cuda"   
+        else:
+            self.logger.warning("CUDA is **not** available, Falling back to CPU")
+            return "cpu"

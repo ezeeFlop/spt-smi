@@ -72,8 +72,16 @@ class Jobs:
         self.dispatcher = None
 
     def _redis_connect(self):
+        # Parse host and port from REDIS_HOST if it contains a port number
+        if ':' in REDIS_HOST:
+            host, port = REDIS_HOST.split(':')
+            port = int(port)
+        else:
+            host = REDIS_HOST
+            port = 6379
+        logger.info(f"Connect to REDIS host {host} port {port}")
         return redis.Redis(
-            host=REDIS_HOST, port=6379, db=0)
+            host=host, port=port, db=0)
 
     def check_redis_connection(self):
         try: 

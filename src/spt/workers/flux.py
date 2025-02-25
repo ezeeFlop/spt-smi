@@ -58,6 +58,7 @@ class Flux(Worker):
                     device_map='balanced'
                 )
                 self.num_inference_steps = 50
+                self.logger.warning("Loading lora weights...")
                 pipe.load_lora_weights("SamFloppy/OurSelfves", weight_name="cve.safetensors")
                 pipe.fuse_lora(lora_scale=1.0)
                 #torch.backends.cuda.matmul.allow_tf32 = True
@@ -95,10 +96,11 @@ class Flux(Worker):
         images = []
         for prompt in prompts:
             image = self.pipe(
-                prompt.text,
-                width=512,
-                height=512,
-                guidance_scale      = 7,
+                prompt=prompt.text,
+                negative_prompt=prompt.negative_prompt,
+                width=request.width,
+                height=request.height,
+                guidance_scale      = request.cfg_scale,
                 output_type         = "pil",
                 num_inference_steps = request.steps,
                 max_sequence_length = 512,

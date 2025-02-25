@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     wget \
     git \
-    python3-venv python3-dev \
+    python3-venv python3-dev  \
     ffmpeg \
     tesseract-ocr \
     python3-setuptools \
