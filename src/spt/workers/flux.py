@@ -58,10 +58,11 @@ class Flux(Worker):
                     device_map="balanced",
                     max_memory={0: "20GB", 1: "20GB"},
                 )
-                self.num_inference_steps = 50
-                self.logger.warning("Loading lora weights...")
+                self.num_inference_steps = 10
+                #self.logger.warning("Loading lora weights...")
                 
                 pipe.load_lora_weights("SamFloppy/OurSelfves", weight_name="cve.safetensors")
+                pipe.fuse_lora()
                 self.logger.warning("LoRA weights loaded successfully - use the trigger word 'KRIST0' in your prompts to activate the LoRA effect")
 
                 generator = torch.Generator(device='cpu')
