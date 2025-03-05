@@ -100,7 +100,7 @@ async def text_to_image(request_data: TextToImageRequest,
                                             priority_key= priority_key)
 
 @app.get("/v1/text-to-image/{job_id}", response_model=Union[JobResponse, TextToImageResponse], tags=["Text To Image Generation"])
-async def text_to_image(job_id: str, request_data: TextToImageRequest, 
+async def text_to_image(job_id: str, 
                         accept=Header(None), api_key: str = Depends(get_api_key)):
     return await controllers.text_to_image_job(job_id=job_id, accept=accept, api_key=api_key)
 
@@ -123,7 +123,7 @@ async def text_to_video(request_data: TextToVideoRequest,
                                             priority_key= priority_key)
 
 @app.get("/v1/text-to-video/{job_id}", response_model=Union[JobResponse, TextToVideoResponse], tags=["Text To Video Generation"])
-async def text_to_video(job_id: str, request_data: TextToVideoRequest, 
+async def text_to_video(job_id: str, 
                         accept=Header(None), api_key: str = Depends(get_api_key)):
     return await controllers.text_to_video_job(job_id=job_id, accept=accept, api_key=api_key)
 

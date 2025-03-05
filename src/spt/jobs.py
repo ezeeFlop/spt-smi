@@ -116,6 +116,7 @@ class Jobs:
         await self.delete_job(job)
         logger.info(f"Job {job.id} result: {result}")
         response_model_class = string_to_class(job.response_model_class)
+        logger.info(f"Response model class: {response_model_class} {result}")
         arg = response_model_class.model_validate_json(result["payload"])
 
         return arg
